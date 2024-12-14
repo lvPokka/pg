@@ -7,6 +7,7 @@
         $("[data-action=anime]").eq(0).remove();
         $("[data-action=feed]").eq(0).remove();
         $("[data-action=myperson]").eq(0).remove();
+        $("[data-action=about]").eq(0).remove();
         $("[data-action=catalog]").eq(0).remove();
         $("[data-action=relise]").eq(0).remove();
         $("[data-action=mytorrents]").eq(0).remove();
