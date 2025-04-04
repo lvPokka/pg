@@ -1,4 +1,5 @@
-//02.03.2025 - Fix
+//https://nb557.github.io/plugins/online_mod.js
+//02.04.2025 - Fix
 
 (function () {
     'use strict';
@@ -71,7 +72,7 @@
     }
 
     function fanserialsHost() {
-      return decodeSecret([89, 69, 64, 69, 67, 14, 26, 26, 67, 3, 31, 87, 85, 91, 67, 81, 71, 92, 81, 92, 31, 69, 66], atob('RnVja0Zhbg=='));
+      return decodeSecret([89, 69, 64, 69, 67, 14, 26, 26, 67, 8, 31, 87, 85, 91, 67, 81, 71, 92, 81, 92, 31, 69, 66], atob('RnVja0Zhbg=='));
     }
 
     function fancdnHost() {
@@ -87,7 +88,7 @@
     }
 
     function baseUserAgent() {
-      return 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36';
+      return 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36';
     }
 
     function vcdnToken() {
@@ -142,9 +143,9 @@
         if (name === 'filmix') return proxy_secret_ip || user_proxy1;
         if (name === 'videodb') return user_proxy2;
         if (name === 'fancdn') return user_proxy3;
-        if (name === 'fancdn2') return user_proxy2;
+        if (name === 'fancdn2') return proxy_secret || user_proxy3;
         if (name === 'fanserials') return user_proxy2;
-        if (name === 'videoseed') return user_proxy2;
+        if (name === 'videoseed') return user_proxy1;
         if (name === 'vibix') return user_proxy2;
         if (name === 'redheadsound') return user_proxy2;
         if (name === 'anilibria') return user_proxy2;
@@ -1372,7 +1373,7 @@
             return;
           }
 
-          var api = embed + 'videos/' + object.movie.id + '/' + encodeURIComponent(element.media.playlist) + api_suffix;
+          var api = embed + 'play/' + object.movie.id + '/' + encodeURIComponent(element.media.playlist) + api_suffix;
           api = Lampa.Utils.addUrlComponent(api, 'ip=' + encodeURIComponent(ip));
           api = Lampa.Utils.addUrlComponent(api, 'title=' + encodeURIComponent(object.movie.title));
           lumex_api(api, function (json) {
@@ -1669,7 +1670,7 @@
         };
 
         var display = function display(links, have_more, query) {
-          if (links && links.length) {
+          if (links && links.length && links.forEach) {
             var is_sure = false;
             var items = links.map(function (l) {
               var li = $(l);
@@ -1807,7 +1808,7 @@
 
         var query_title_search = function query_title_search() {
           query_search(component.cleanTitle(select_title), [], function (data, have_more, query) {
-            if (data && data.length) display(data, have_more, query);else display([]);
+            if (data && data.length && data.forEach) display(data, have_more, query);else display([]);
           });
         };
 
@@ -3411,7 +3412,7 @@
             if (element.file) {
               var playlist = [];
               var first = {
-                url: element.file,
+                url: component.getDefaultQuality(null, element.file),
                 subtitles: element.subtitles,
                 translate: {
                   tracks: element.audio_tracks
@@ -3423,7 +3424,7 @@
               if (element.season) {
                 items.forEach(function (elem) {
                   playlist.push({
-                    url: elem.file,
+                    url: component.getDefaultQuality(null, elem.file),
                     subtitles: elem.subtitles,
                     translate: {
                       tracks: elem.audio_tracks
@@ -4066,75 +4067,77 @@
         }
 
         var display = function display(json) {
-          var is_sure = false;
-          json.forEach(function (c) {
-            if (!c.orig_title) c.orig_title = c.original_title || c.original_name;
-            if (!c.year && c.alt_name) c.year = parseInt(c.alt_name.split('-').pop());
-          });
-          var cards = json;
+          if (json && json.length && json.forEach) {
+            var is_sure = false;
+            json.forEach(function (c) {
+              if (!c.orig_title) c.orig_title = c.original_title || c.original_name;
+              if (!c.year && c.alt_name) c.year = parseInt(c.alt_name.split('-').pop());
+            });
+            var cards = json;
 
-          if (cards.length) {
-            if (orig_titles.length) {
-              var tmp = cards.filter(function (c) {
-                return component.containsAnyTitle([c.orig_title, c.title], orig_titles);
-              });
-
-              if (tmp.length) {
-                cards = tmp;
-                is_sure = true;
-              }
-            }
-
-            if (select_title) {
-              var _tmp = cards.filter(function (c) {
-                return component.containsAnyTitle([c.title, c.orig_title], [select_title]);
-              });
-
-              if (_tmp.length) {
-                cards = _tmp;
-                is_sure = true;
-              }
-            }
-
-            if (cards.length > 1 && search_year) {
-              var _tmp2 = cards.filter(function (c) {
-                return c.year == search_year;
-              });
-
-              if (!_tmp2.length) _tmp2 = cards.filter(function (c) {
-                return c.year && c.year > search_year - 2 && c.year < search_year + 2;
-              });
-              if (_tmp2.length) cards = _tmp2;
-            }
-          }
-
-          if (cards.length == 1 && is_sure) {
-            if (search_year && cards[0].year) {
-              is_sure = cards[0].year > search_year - 2 && cards[0].year < search_year + 2;
-            }
-
-            if (is_sure) {
-              is_sure = false;
-
+            if (cards.length) {
               if (orig_titles.length) {
-                is_sure |= component.equalAnyTitle([cards[0].orig_title, cards[0].title], orig_titles);
+                var tmp = cards.filter(function (c) {
+                  return component.containsAnyTitle([c.orig_title, c.title], orig_titles);
+                });
+
+                if (tmp.length) {
+                  cards = tmp;
+                  is_sure = true;
+                }
               }
 
               if (select_title) {
-                is_sure |= component.equalAnyTitle([cards[0].title, cards[0].orig_title], [select_title]);
+                var _tmp = cards.filter(function (c) {
+                  return component.containsAnyTitle([c.title, c.orig_title], [select_title]);
+                });
+
+                if (_tmp.length) {
+                  cards = _tmp;
+                  is_sure = true;
+                }
+              }
+
+              if (cards.length > 1 && search_year) {
+                var _tmp2 = cards.filter(function (c) {
+                  return c.year == search_year;
+                });
+
+                if (!_tmp2.length) _tmp2 = cards.filter(function (c) {
+                  return c.year && c.year > search_year - 2 && c.year < search_year + 2;
+                });
+                if (_tmp2.length) cards = _tmp2;
               }
             }
-          }
 
-          if (cards.length == 1 && is_sure) find(cards[0].id);else if (json.length) {
-            _this.wait_similars = true;
-            json.forEach(function (c) {
-              c.is_similars = true;
-              c.seasons_count = c.last_episode && c.last_episode.season;
-              c.episodes_count = c.last_episode && c.last_episode.episode;
-            });
-            component.similars(json);
-            component.loading(false);
+            if (cards.length == 1 && is_sure) {
+              if (search_year && cards[0].year) {
+                is_sure = cards[0].year > search_year - 2 && cards[0].year < search_year + 2;
+              }
+
+              if (is_sure) {
+                is_sure = false;
+
+                if (orig_titles.length) {
+                  is_sure |= component.equalAnyTitle([cards[0].orig_title, cards[0].title], orig_titles);
+                }
+
+                if (select_title) {
+                  is_sure |= component.equalAnyTitle([cards[0].title, cards[0].orig_title], [select_title]);
+                }
+              }
+            }
+
+            if (cards.length == 1 && is_sure) find(cards[0].id);else if (json.length) {
+              _this.wait_similars = true;
+              json.forEach(function (c) {
+                c.is_similars = true;
+                c.seasons_count = c.last_episode && c.last_episode.season;
+                c.episodes_count = c.last_episode && c.last_episode.episode;
+              });
+              component.similars(json);
+              component.loading(false);
+            } else component.emptyForQuery(select_title);
           } else component.emptyForQuery(select_title);
         };
 
@@ -4160,7 +4163,7 @@
           network.clear();
           network.timeout(10000);
           network["native"](url, function (json) {
-            if (json && json.length) display(json);else siteSearch();
+            if (json && json.length && json.forEach) display(json);else siteSearch();
           }, function (a, c) {
             if (!abuse && abuse_token) apiSearch(true);else siteSearch();
           }, false, {
@@ -5080,7 +5083,7 @@
         if (object.movie.original_name) orig_titles.push(object.movie.original_name);
 
         var display = function display(links) {
-          if (links && links.length) {
+          if (links && links.length && links.forEach) {
             var is_sure = false;
             var items = links.map(function (l) {
               var li = $(l + '</div>');
@@ -5191,9 +5194,20 @@
         network.timeout(10000);
         network["native"](component.proxyLink(url, prox, prox_enc), function (str) {
           str = (str || '').replace(/\n/g, '');
-          var player = str.match(/<iframe id="iframe-player" src="(https?:\/\/fancdn.net\/[^"]*)"/);
+          var player = str.match(/<iframe +id="iframe-player" +src=" *(https?:\/\/fancdn.net\/[^"]*)"/);
 
           if (player) {
+            if (!(Lampa.Storage.get('online_mod_fancdn_token', '') + '')) {
+              var pos = player[1].indexOf('?');
+
+              if (pos !== -1) {
+                var token = player[1].substring(pos + 1).split('&').filter(function (s) {
+                  return startsWith(s, 'key=');
+                }).join('&');
+                Lampa.Storage.set('online_mod_fancdn_token', token);
+              }
+            }
+
             network.clear();
             network.timeout(10000);
             network["native"](component.proxyLink(player[1], prox, prox_enc2), function (str) {
@@ -5675,6 +5689,7 @@
       }
 
       var embed = atob('aHR0cHM6Ly9mYW5jZG4ubmV0L2lmcmFtZS8=');
+      var token = Lampa.Storage.get('online_mod_fancdn_token', '') + '';
       var filter_items = {};
       var choice = {
         season: 0,
@@ -5683,9 +5698,15 @@
       };
 
       function fancdn_api_search(api, callback, error) {
+        var url = Lampa.Utils.addUrlComponent(embed, api);
+
+        if (token) {
+          url = Lampa.Utils.addUrlComponent(url, token);
+        }
+
         network.clear();
         network.timeout(10000);
-        network["native"](component.proxyLink(Lampa.Utils.addUrlComponent(embed, api), prox, prox_enc), function (str) {
+        network["native"](component.proxyLink(url, prox, prox_enc), function (str) {
           if (str && str.indexOf('<title>Доступ ограничен</title>') !== -1) {
             if (error) error(Lampa.Lang.translate('online_mod_authorization_required') + ' FanSerials');
             return;
@@ -6632,31 +6653,18 @@
       var object = _object;
       var select_title = '';
       var prox = component.proxy('videoseed');
-      var embed = atob('aHR0cHM6Ly90di0yLWtpbm9zZXJpYWwubmV0Lw==');
-      var suffix = atob('dG9rZW49dW5kZWZpbmVk');
+      var embed = atob('aHR0cHM6Ly92aWRlb3NlZWQudHYvYXBpdjIucGhw');
+      var suffix = Utils.decodeSecret([69, 91, 92, 84, 89, 5, 1, 85, 83, 83, 6, 5, 14, 4, 84, 92, 4, 85, 84, 9, 87, 13, 3, 85, 2, 9, 83, 87, 80, 83, 80, 81, 83, 2, 14, 12, 7, 2], atob('U2Vla1Rva2Vu'));
       var filter_items = {};
       var choice = {
         season: 0,
         voice: 0
       };
-
-      function videoseed_api_search(api, callback, error) {
-        network.clear();
-        network.timeout(10000);
-        network["native"](component.proxyLink(api, prox), function (str) {
-          if (callback) callback(str || '');
-        }, function (a, c) {
-          if (error) error(network.errorDecode(a, c));
-        }, false, {
-          dataType: 'text'
-        });
-      }
       /**
        * Начать поиск
        * @param {Object} _object
        * @param {String} kinopoisk_id
        */
-
 
       this.search = function (_object, kinopoisk_id) {
         object = _object;
@@ -6672,15 +6680,34 @@
         };
 
         var error = component.empty.bind(component);
-        var api = embed + 'api_player.php?kp_id=' + encodeURIComponent(kinopoisk_id);
+        var api = embed;
+        api = Lampa.Utils.addUrlComponent(api, 'item=' + (object.movie.number_of_seasons ? 'serial' : 'movie'));
         api = Lampa.Utils.addUrlComponent(api, suffix);
-        videoseed_api_search(api, function (str) {
-          if (str && str.indexOf('/embed/') !== -1) {
-            videoseed_api_search(str, function (str) {
+        api = Lampa.Utils.addUrlComponent(api, 'kp=' + encodeURIComponent(kinopoisk_id));
+        network.clear();
+        network.timeout(10000);
+        network["native"](component.proxyLink(api, prox, '', 'enc2'), function (json) {
+          if (json && json.data && json.data[0] && json.data[0].iframe) {
+            var url = json.data[0].iframe;
+            var pos = url.indexOf('?');
+
+            if (pos !== -1) {
+              url = url.substring(0, pos);
+            }
+
+            network.clear();
+            network.timeout(10000);
+            network["native"](component.proxyLink(url, prox), function (str) {
               parse(str || '', empty);
-            }, error);
+            }, function (a, c) {
+              error(network.errorDecode(a, c));
+            }, false, {
+              dataType: 'text'
+            });
           } else empty();
-        }, error);
+        }, function (a, c) {
+          error(network.errorDecode(a, c));
+        });
       };
 
       this.extendChoice = function (saved) {
@@ -6728,12 +6755,21 @@
 
       function parse(str, empty) {
         str = (str || '').replace(/\n/g, '');
-        var find = str.match(/Playerjs\(({.*?})\);/);
         var json;
+        var find = str.match(/Playerjs\(({.*?})\);/);
 
-        try {
-          json = find && (0, eval)('"use strict"; (function(){ var token = ""; return ' + find[1] + '; })();');
-        } catch (e) {}
+        if (find) {
+          try {
+            json = find && (0, eval)('"use strict"; (function(){ var token = ""; return ' + find[1] + '; })();');
+          } catch (e) {}
+        } else {
+          find = str.match(/Playerjs\("([^"]*)"\);/);
+          var player = find && decode(find[1]);
+
+          try {
+            json = player && JSON.parse(player);
+          } catch (e) {}
+        }
 
         if (json && json.file) {
           component.loading(false);
@@ -6741,6 +6777,36 @@
           filter();
           append(filtred());
         } else empty();
+      }
+
+      function decode(data) {
+        if (!startsWith(data, '#')) return data;
+
+        var enc = function enc(str) {
+          return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function (match, p1) {
+            return String.fromCharCode('0x' + p1);
+          }));
+        };
+
+        var dec = function dec(str) {
+          return decodeURIComponent(atob(str).split('').map(function (c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          }).join(''));
+        };
+
+        var trashList = ['qVNP035fDl3hd05QZUkkYsRYC1glOVERZU0YGNvpepEFC', 'g8c71IUSaroqb636BTt7hlKNMA4oR718nyDbbiMm6PCEh', '3dNupT1rfIIIQgFh5Xhbk2i18Rfe4GN8Dq6IxL5saG9Y1', 'hxFNhEtJfd1WeZkns6d7DLvJ8vv8E88XenAtZ4UvDJeBV', '7r3aw2Eat03AiCGA260OBqg7qYmtPbG7aFY8T2b1GSNuL'];
+        var x = data.substring(2);
+        trashList.forEach(function (trash) {
+          x = x.replace('|||' + enc(trash), '');
+        });
+
+        try {
+          x = dec(x);
+        } catch (e) {
+          x = '';
+        }
+
+        return x;
       }
       /**
        * Построить фильтр
@@ -7111,6 +7177,13 @@
           json = find && (0, eval)('"use strict"; (function(){ return ' + find[1] + '; })();');
         } catch (e) {}
 
+        if (json && json.file && typeof json.file === 'string') {
+          json.file = [{
+            file: json.file,
+            title: select_title
+          }];
+        }
+
         if (json && json.file && json.file.forEach) {
           component.loading(false);
           extract = json;
@@ -7382,9 +7455,19 @@
       var av1_support = Lampa.Storage.field('online_mod_av1_support') === true;
       var prox = component.proxy('alloha');
       var prox2 = component.proxy('allohacdn');
-      var token = 'd317441359e505c343c2063edc97e7';
+      var user_agent = Utils.decodeSecret([122, 91, 75, 95, 88, 91, 87, 31, 12, 25, 4, 17, 30, 99, 94, 88, 84, 86, 64, 71, 17, 120, 96, 23, 7, 0, 23, 7, 15, 17, 97, 93, 89, 0, 4, 2, 23, 76, 7, 2, 29, 23, 119, 64, 73, 91, 81, 102, 83, 86, 124, 95, 68, 22, 2, 7, 6, 24, 7, 1, 22, 24, 114, 127, 96, 124, 122, 24, 23, 90, 89, 82, 82, 20, 118, 83, 87, 92, 89, 25, 25, 116, 92, 67, 89, 89, 82, 25, 1, 10, 3, 26, 1, 24, 4, 25, 6, 16, 106, 86, 82, 80, 68, 93, 24, 3, 3, 14, 25, 7, 7]);
+      var headers2 = Lampa.Platform.is('android') ? {
+        'User-Agent': user_agent
+      } : {};
+      var prox2_enc = '';
+
+      if (prox2) {
+        prox2_enc += 'param/User-Agent=' + encodeURIComponent(user_agent) + '/';
+      }
+
+      var token = Utils.decodeSecret([83, 7, 0, 1, 0, 3, 7, 3, 12, 14, 81, 4, 6, 1, 84, 5, 4, 10, 84, 6, 1, 0, 7, 82, 82, 83, 0, 0, 81, 6]);
       var embed = 'https://api.apbugall.org/?token=' + token;
-      var decrypt = Utils.decodeSecret([31, 82, 68, 88, 87, 67, 95, 95, 87, 31, 71, 69, 68, 24, 23, 67, 66, 85, 27, 20, 69, 89, 95, 82, 88, 28, 25, 86, 66, 0, 31, 79, 23, 64, 81, 75, 23, 81, 73, 66, 70, 86, 85, 68, 25, 10, 20, 74, 75, 15, 23, 64, 81, 75, 23, 92, 94, 69, 64, 23, 11, 16, 76, 69, 88, 31, 91, 85, 67, 85, 88, 17, 24, 106, 25, 94, 64, 67, 70, 67, 6, 13, 104, 30, 106, 27, 108, 104, 108, 22, 106, 31, 24, 106, 27, 24, 31, 11, 25, 94, 82, 17, 30, 92, 88, 69, 68, 16, 76, 20, 84, 78, 64, 69, 87, 83, 77, 25, 68, 94, 69, 64, 83, 87, 68, 88, 23, 9, 17, 17, 64, 88, 93, 85, 87, 10, 19, 17, 29, 20, 82, 88, 83, 86, 83, 81, 100, 100, 125, 116, 89, 93, 73, 88, 90, 84, 88, 64, 31, 66, 95, 82, 82, 90, 24, 22, 31, 23, 30, 81, 79, 6, 20, 14, 22, 19, 17, 87, 70, 8, 10, 19, 17, 29, 20, 86, 64, 1, 25, 13, 20, 22, 17, 29, 23, 29, 16, 30, 17, 85, 68, 66, 91, 71, 90, 81, 64, 10, 4, 22, 13, 20, 65, 87, 66, 25, 69, 81, 87, 83, 70, 82, 68, 16, 4, 23, 65, 67, 90, 15, 23, 64, 81, 75, 23, 65, 66, 83, 70, 104, 87, 87, 92, 89, 64, 17, 11, 20, 16, 123, 95, 67, 94, 88, 93, 87, 27, 2, 24, 0, 25, 31, 99, 88, 88, 80, 88, 65, 67, 25, 121, 96, 17, 7, 4, 25, 6, 11, 25, 96, 93, 95, 0, 0, 12, 22, 72, 15, 3, 29, 17, 119, 68, 71, 90, 85, 110, 82, 86, 122, 95, 64, 24, 3, 3, 14, 25, 7, 7, 22, 28, 124, 126, 100, 116, 123, 24, 17, 90, 93, 92, 83, 16, 126, 82, 87, 90, 89, 29, 23, 117, 88, 75, 88, 89, 84, 25, 5, 4, 4, 30, 9, 25, 4, 31, 6, 20, 100, 87, 86, 88, 69, 93, 30, 3, 7, 0, 24, 3, 15, 16, 15, 17, 83, 76, 67, 68, 81, 90, 67, 26, 85, 89, 89, 86, 95, 94, 25, 10, 20, 89, 89, 71, 67, 109, 1, 100, 23, 31, 17, 17, 27, 16, 13, 16, 92, 79, 64, 67, 87, 87, 67, 24, 64, 75, 88, 76, 3, 22, 9, 23, 30, 23, 73, 86, 70, 80, 91, 27, 120, 68, 89, 94, 94, 90, 12, 17, 20, 28, 22, 85, 87, 84, 91, 85, 83, 97, 101, 127, 115, 86, 90, 68, 94, 88, 81, 89, 66, 24, 81, 88, 71, 69, 109, 5, 106, 31, 16, 18, 23, 19, 30, 17, 29, 23, 29, 16, 17, 16, 68, 80, 68, 85, 90, 25, 98, 92, 81, 81, 67, 83, 70, 10, 17, 16, 18, 23, 81, 95, 85, 91, 83, 83, 101, 107, 126, 119, 94, 91, 68, 88, 88, 85, 87, 67, 28, 67, 83, 82, 82, 68, 85, 75, 30, 20, 26, 22, 19, 24, 17, 25, 25, 28, 20, 25, 17, 68, 86, 68, 81, 84, 24, 97, 66, 83, 70, 26, 119, 87, 92, 89, 64, 12, 17, 20, 28, 22, 85, 87, 84, 91, 85, 83, 97, 101, 127, 115, 86, 90, 68, 94, 88, 81, 89, 66, 24, 76, 68, 81, 67, 105, 85, 80, 83, 94, 77, 30, 20, 26, 22, 19, 24, 17, 25, 2, 23, 81, 73, 66, 70, 86, 85, 68, 23, 95, 81, 80, 82, 81, 69, 69, 16, 4, 23, 120, 80, 91, 68, 86, 24, 96, 85, 86, 64, 87, 89, 70, 90, 24, 89, 74, 31, 19, 80, 88, 80, 69, 89, 89, 93, 16, 29, 17, 9, 20, 76, 22, 23, 118, 69, 93, 86, 95, 90, 16, 12, 16, 81, 88, 71, 69, 109, 5, 106, 26, 16, 30, 101, 81, 87, 83, 70, 82, 68, 23, 3, 23, 70, 84, 80, 81, 69, 83, 66, 21, 23, 19, 100, 69, 81, 69, 27, 113, 94, 82, 90, 69, 17, 14, 23, 67, 67, 92, 69, 107, 80, 81, 81, 89, 66, 16, 68, 23, 14, 17, 77, 73, 12, 22, 85, 65, 67, 70, 80, 85, 64, 25, 69, 68, 75, 82, 85, 92, 105, 68, 69, 89, 72, 11, 23, 9, 17, 30, 19, 71, 87, 66, 88, 90, 27, 126, 68, 93, 80, 95, 94, 4, 16, 20, 26, 22, 81, 89, 85, 95, 93, 82, 97, 99, 127, 119, 88, 91, 64, 86, 89, 81, 95, 66, 28, 95, 89, 67, 77, 108, 5, 108, 31, 20, 28, 22, 23, 22, 16, 29, 17, 29, 20, 31, 17, 64, 88, 69, 85, 92, 25, 102, 82, 80, 85, 75, 82, 70, 12, 17, 20, 28, 22, 85, 87, 84, 91, 85, 83, 97, 101, 127, 115, 86, 90, 68, 94, 88, 81, 89, 66, 24, 81, 88, 71, 69, 109, 5, 106, 22, 27, 25, 16, 27, 22, 31, 20, 28, 22, 23, 22, 16, 29, 17, 29, 20, 31, 17, 64, 88, 69, 85, 92, 25, 97, 68, 83, 66, 20, 118, 83, 84, 88, 64, 10, 17, 16, 18, 23, 81, 95, 85, 91, 83, 83, 101, 107, 126, 119, 94, 91, 68, 88, 88, 85, 87, 67, 28, 68, 69, 81, 69, 105, 81, 94, 82, 90, 69, 31, 20, 28, 22, 23, 22, 16, 29, 10, 22, 81, 79, 66, 66, 88, 84, 64, 31, 69, 64, 69, 83, 81, 84, 104, 92, 84, 87, 80, 82, 68, 67, 25, 10, 20, 125, 87, 89, 71, 87, 30, 105, 91, 85, 69, 80, 91, 69, 91, 30, 80, 68, 28, 22, 87, 90, 83, 68, 95, 80, 83, 19, 24, 22, 11, 23, 77, 16, 30, 120, 70, 88, 81, 93, 89, 17, 10, 25, 95, 91, 66, 66, 111, 6, 107, 28, 25, 16, 102, 84, 80, 81, 69, 83, 66, 30, 13, 20, 89, 89, 71, 67, 109, 1, 100, 23, 31, 17, 17, 27, 16, 26, 16, 30, 98, 71, 84, 68, 25, 118, 81, 85, 87, 67, 19, 11, 22, 65, 68, 83, 66, 102, 86, 83, 84, 88, 64, 23, 75, 16, 3, 23, 79, 76, 13, 20, 74, 22, 66, 92, 67, 65, 67, 88, 20, 82, 78, 68, 75, 86, 87, 69, 13, 20, 74, 31, 30, 90, 86, 88, 93, 30, 79, 74, 26]);
+      var decrypt = Utils.decodeSecret([31, 82, 68, 88, 87, 67, 95, 95, 87, 31, 71, 69, 68, 24, 23, 67, 66, 85, 27, 20, 69, 89, 95, 82, 88, 28, 25, 86, 66, 0, 31, 79, 23, 64, 81, 75, 23, 81, 73, 66, 70, 86, 85, 68, 25, 10, 20, 74, 75, 15, 23, 64, 81, 75, 23, 92, 94, 69, 64, 23, 11, 16, 76, 69, 88, 31, 91, 85, 67, 85, 88, 17, 24, 106, 25, 94, 64, 67, 70, 67, 6, 13, 104, 30, 106, 27, 108, 104, 108, 22, 106, 31, 24, 106, 27, 24, 31, 11, 25, 94, 82, 17, 30, 92, 88, 69, 68, 16, 76, 20, 84, 78, 64, 69, 87, 83, 77, 25, 68, 94, 69, 64, 83, 87, 68, 88, 23, 9, 17, 17, 64, 88, 93, 85, 87, 10, 19, 17, 29, 20, 82, 88, 83, 86, 83, 81, 100, 100, 125, 116, 89, 93, 73, 88, 90, 84, 88, 64, 31, 66, 95, 82, 82, 90, 24, 22, 31, 23, 30, 81, 79, 6, 20, 14, 22, 19, 17, 87, 70, 8, 10, 19, 17, 29, 20, 86, 64, 1, 25, 13, 20, 22, 17, 29, 23, 29, 16, 30, 17, 85, 68, 66, 91, 71, 90, 81, 64, 10, 4, 23, 87, 65, 83, 95, 95, 4, 17, 71, 68, 84, 64, 94, 66, 92, 92, 10, 19, 10, 22, 66, 86, 68, 16, 75, 82, 82, 84, 68, 81, 69, 22, 13, 25, 66, 70, 93, 13, 20, 65, 87, 66, 25, 66, 71, 84, 68, 107, 86, 81, 85, 87, 67, 20, 12, 22, 19, 122, 89, 74, 80, 91, 88, 80, 25, 1, 25, 6, 16, 17, 96, 93, 95, 82, 91, 64, 69, 16, 119, 99, 20, 0, 6, 26, 7, 13, 16, 110, 94, 90, 7, 2, 15, 23, 78, 6, 13, 30, 20, 112, 70, 68, 91, 83, 103, 92, 85, 127, 88, 66, 27, 2, 5, 7, 23, 4, 2, 17, 30, 127, 127, 98, 125, 117, 27, 20, 93, 95, 95, 82, 22, 119, 92, 84, 95, 94, 31, 20, 116, 94, 66, 86, 90, 81, 30, 7, 7, 3, 24, 0, 23, 7, 26, 1, 22, 103, 86, 80, 81, 75, 94, 27, 4, 5, 3, 25, 5, 6, 30, 12, 20, 84, 78, 64, 69, 87, 83, 77, 25, 80, 94, 91, 85, 94, 88, 16, 4, 23, 92, 94, 69, 64, 108, 7, 109, 25, 28, 20, 22, 25, 19, 12, 22, 85, 65, 67, 70, 80, 85, 64, 25, 70, 66, 86, 79, 6, 17, 11, 20, 31, 17, 64, 88, 69, 85, 92, 25, 123, 69, 95, 87, 80, 89, 9, 22, 22, 31, 23, 83, 94, 90, 88, 80, 84, 99, 102, 126, 117, 95, 84, 71, 91, 95, 83, 90, 67, 30, 88, 86, 68, 64, 106, 7, 105, 30, 22, 27, 25, 16, 27, 22, 31, 20, 28, 22, 24, 30, 71, 85, 67, 87, 89, 24, 100, 85, 95, 82, 70, 84, 68, 9, 16, 22, 27, 25, 82, 90, 82, 89, 80, 82, 99, 98, 112, 116, 91, 92, 70, 91, 89, 83, 94, 77, 31, 70, 84, 80, 81, 69, 83, 66, 16, 23, 31, 17, 17, 27, 16, 31, 16, 18, 23, 28, 22, 70, 85, 69, 87, 93, 22, 98, 71, 84, 68, 25, 118, 81, 85, 87, 67, 9, 22, 22, 31, 23, 83, 94, 90, 88, 80, 84, 99, 102, 126, 117, 95, 84, 71, 91, 95, 83, 90, 67, 30, 69, 74, 82, 70, 110, 87, 83, 82, 88, 68, 16, 23, 31, 17, 17, 27, 16, 31, 16, 18, 23, 28, 22, 70, 85, 69, 87, 93, 22, 100, 81, 82, 27, 114, 82, 66, 83, 81, 26, 112, 84, 69, 64, 10, 83, 93, 73, 67, 77, 30, 17, 29, 23, 29, 16, 17, 16, 68, 80, 68, 85, 90, 25, 99, 92, 84, 25, 119, 83, 64, 84, 94, 29, 116, 88, 80, 84, 11, 87, 88, 68, 67, 22, 16, 29, 17, 29, 20, 31, 17, 64, 88, 69, 85, 92, 25, 103, 82, 85, 29, 127, 82, 64, 82, 94, 25, 100, 95, 68, 92, 10, 71, 80, 91, 81, 26, 89, 66, 80, 80, 93, 95, 25, 19, 30, 22, 27, 25, 31, 19, 65, 87, 70, 86, 91, 31, 97, 26, 102, 84, 71, 65, 82, 69, 68, 92, 83, 25, 102, 95, 64, 95, 11, 104, 116, 123, 124, 69, 66, 68, 101, 83, 65, 76, 82, 71, 69, 25, 19, 30, 13, 16, 92, 79, 64, 67, 87, 87, 67, 24, 88, 92, 86, 80, 84, 68, 71, 23, 11, 16, 117, 86, 89, 65, 87, 26, 103, 90, 81, 77, 81, 91, 67, 91, 26, 94, 69, 24, 30, 86, 90, 85, 68, 91, 94, 82, 23, 16, 23, 11, 17, 77, 20, 16, 121, 66, 80, 80, 93, 95, 17, 14, 23, 94, 95, 74, 67, 111, 0, 107, 24, 23, 17, 98, 92, 81, 81, 67, 83, 70, 16, 12, 16, 75, 82, 82, 84, 68, 81, 69, 26, 16, 30, 98, 71, 84, 68, 25, 118, 81, 85, 87, 67, 19, 11, 22, 65, 68, 83, 66, 102, 86, 83, 84, 88, 64, 27, 22, 23, 106, 82, 87, 28, 112, 81, 67, 85, 88, 20, 115, 81, 66, 66, 19, 13, 22, 23, 92, 90, 68, 69, 79, 19, 27, 22, 23, 106, 82, 87, 28, 112, 81, 67, 85, 88, 20, 122, 91, 85, 83, 19, 13, 22, 23, 90, 88, 70, 66, 17, 24, 23, 17, 99, 92, 84, 25, 119, 83, 64, 84, 94, 29, 106, 94, 64, 84, 17, 14, 23, 17, 67, 88, 90, 81, 28, 89, 70, 94, 81, 89, 87, 16, 24, 17, 17, 108, 26, 100, 85, 72, 66, 81, 66, 66, 81, 83, 27, 103, 80, 67, 92, 22, 12, 20, 16, 110, 125, 117, 127, 64, 69, 70, 102, 82, 71, 69, 92, 68, 64, 22, 22, 73, 23, 12, 16, 66, 74, 15, 17, 64, 85, 69, 22, 69, 74, 82, 70, 17, 11, 20, 68, 66, 66, 23, 90, 85, 69, 85, 92, 31, 25, 12, 84, 82, 64, 80, 22, 90, 86, 91, 85, 4, 21, 65, 66, 83, 70, 21, 22, 83, 86, 89, 64, 84, 88, 64, 10, 20, 24, 98, 105, 22, 108, 28, 29, 21, 25, 25, 2, 23, 93, 87, 22, 28, 66, 69, 85, 75, 30, 79, 17, 83, 76, 67, 68, 81, 90, 67, 26, 65, 68, 91, 79, 4, 16, 18, 10, 20, 22, 70, 85, 69, 87, 93, 22, 118, 87, 82, 83, 68, 67, 69, 29, 122, 88, 90, 69, 68, 91, 91, 69, 13, 30, 23, 31, 17, 83, 90, 84, 89, 84, 92, 98, 102, 120, 117, 91, 90, 70, 95, 87, 82, 90, 69, 30, 65, 68, 83, 66, 98, 6, 105, 24, 22, 31, 23, 17, 31, 30, 12, 20, 88, 80, 20, 31, 122, 81, 84, 71, 85, 31, 102, 88, 86, 66, 86, 86, 69, 89, 31, 95, 71, 31, 17, 81, 87, 83, 70, 94, 95, 80, 16, 31, 25, 66, 23, 81, 73, 66, 70, 86, 85, 68, 23, 95, 81, 80, 82, 81, 69, 69, 107, 30, 118, 87, 82, 83, 68, 67, 69, 29, 122, 88, 90, 69, 68, 91, 91, 69, 23, 100, 23, 9, 17, 67, 71, 82, 68, 107, 8, 106, 15, 17, 75, 20, 74, 22, 85, 65, 67, 70, 80, 85, 64, 25, 69, 68, 75, 82, 85, 92, 105, 68, 69, 89, 72, 11, 23, 9, 17, 30, 19, 71, 87, 66, 88, 90, 27, 126, 68, 93, 80, 95, 94, 4, 16, 20, 26, 22, 81, 89, 85, 95, 93, 82, 97, 99, 127, 119, 88, 91, 64, 86, 89, 81, 95, 66, 28, 95, 89, 67, 77, 108, 5, 108, 31, 20, 28, 22, 23, 22, 16, 29, 17, 29, 20, 31, 17, 64, 88, 69, 85, 92, 25, 102, 82, 80, 85, 75, 82, 70, 12, 17, 20, 28, 22, 85, 87, 84, 91, 85, 83, 97, 101, 127, 115, 86, 90, 68, 94, 88, 81, 89, 66, 24, 81, 88, 71, 69, 109, 5, 106, 22, 27, 25, 16, 27, 22, 31, 20, 28, 22, 23, 22, 16, 29, 17, 29, 20, 31, 17, 64, 88, 69, 85, 92, 25, 97, 68, 83, 66, 20, 118, 83, 84, 88, 64, 10, 17, 16, 18, 23, 81, 95, 85, 91, 83, 83, 101, 107, 126, 119, 94, 91, 68, 88, 88, 85, 87, 67, 28, 68, 69, 81, 69, 105, 81, 94, 82, 90, 69, 31, 20, 28, 22, 23, 22, 16, 29, 10, 22, 81, 79, 66, 66, 88, 84, 64, 31, 69, 64, 69, 83, 81, 84, 104, 92, 84, 87, 80, 82, 68, 67, 25, 10, 20, 125, 87, 89, 71, 87, 30, 105, 91, 85, 69, 80, 91, 69, 91, 30, 80, 68, 28, 22, 87, 90, 83, 68, 95, 80, 83, 19, 24, 22, 11, 23, 77, 16, 30, 120, 70, 88, 81, 93, 89, 17, 10, 25, 95, 91, 66, 66, 111, 6, 107, 28, 25, 16, 102, 84, 80, 81, 69, 83, 66, 30, 13, 20, 89, 89, 71, 67, 109, 1, 100, 23, 31, 17, 17, 27, 16, 26, 16, 30, 98, 71, 84, 68, 25, 118, 81, 85, 87, 67, 19, 11, 22, 65, 68, 83, 66, 102, 86, 83, 84, 88, 64, 23, 75, 16, 3, 23, 79, 76, 13, 20, 74, 22, 66, 92, 67, 65, 67, 88, 20, 82, 78, 68, 75, 86, 87, 69, 13, 20, 74, 31, 30, 90, 86, 88, 93, 30, 79, 74, 26]);
       var filter_items = {};
       var choice = {
         season: 0,
@@ -7425,12 +7508,13 @@
       function getPage(data) {
         network.clear();
         network.timeout(20000);
-        network["native"](component.proxyLink(data.iframe, prox2, '', 'enc2'), function (str) {
+        network["native"](component.proxyLink(data.iframe, prox2, prox2_enc, 'enc2'), function (str) {
           parse(str, data.iframe);
         }, function (a, c) {
           component.empty(network.errorDecode(a, c));
         }, false, {
-          dataType: 'text'
+          dataType: 'text',
+          headers: headers2
         });
       }
 
@@ -7866,7 +7950,7 @@
         var url = embed + 'index.php?do=search';
 
         var display = function display(links) {
-          if (links && links.length) {
+          if (links && links.length && links.forEach) {
             var is_sure = false;
             var items = links.map(function (l) {
               var article = $(l);
@@ -7972,15 +8056,15 @@
 
         var query_title_search = function query_title_search() {
           query_search(component.cleanTitle(select_title), [], function (data) {
-            if (data && data.length) display(data);else display([]);
+            if (data && data.length && data.forEach) display(data);else display([]);
           });
         };
 
         if (!object.clarification && (object.movie.imdb_id || +object.movie.kinopoisk_id)) {
           query_search('+' + (object.movie.imdb_id || +object.movie.kinopoisk_id), [], function (data) {
-            if (data && data.length) display(data);else if (object.movie.imdb_id && +object.movie.kinopoisk_id) {
+            if (data && data.length && data.forEach) display(data);else if (object.movie.imdb_id && +object.movie.kinopoisk_id) {
               query_search('+' + +object.movie.kinopoisk_id, [], function (data) {
-                if (data && data.length) display(data);else query_title_search();
+                if (data && data.length && data.forEach) display(data);else query_title_search();
               });
             } else query_title_search();
           });
@@ -8441,7 +8525,7 @@
             if (element.file) {
               var playlist = [];
               var first = {
-                url: element.file,
+                url: component.getDefaultQuality(null, element.file),
                 timeline: element.timeline,
                 title: element.season ? element.title : select_title + (element.title == select_title ? '' : ' / ' + element.title)
               };
@@ -8449,7 +8533,7 @@
               if (element.season) {
                 items.forEach(function (elem) {
                   playlist.push({
-                    url: elem.file,
+                    url: component.getDefaultQuality(null, elem.file),
                     timeline: elem.timeline,
                     title: elem.title
                   });
@@ -9307,7 +9391,7 @@
         if (object.movie.original_name) orig_titles.push(object.movie.original_name);
 
         var display = function display(items) {
-          if (items && items.length) {
+          if (items && items.length && items.forEach) {
             var is_sure = false;
             items.forEach(function (c) {
               c.orig_title = c.name;
@@ -9866,7 +9950,7 @@
         if (object.movie.original_name) orig_titles.push(object.movie.original_name);
 
         var display = function display(results, empty) {
-          if (results && results.length) {
+          if (results && results.length && results.forEach) {
             var is_sure = false;
             var is_imdb = false;
             var elements = {};
@@ -10360,6 +10444,7 @@
 
       function decode(str) {
         try {
+          if (startsWith(str, 'http') || startsWith(str, '//')) return str;
           return atob(str.replace(/[a-z]/g, function (x) {
             return String.fromCharCode(x.charCodeAt(0) + (x > 'm' ? -13 : 13));
           }).replace(/[A-Z]/g, function (x) {
@@ -10533,7 +10618,7 @@
         if (object.movie.original_name) orig_titles.push(object.movie.original_name);
 
         var display = function display(items) {
-          if (items && items.length) {
+          if (items && items.length && items.forEach) {
             var is_sure = false;
             var is_imdb = false;
             items.forEach(function (c) {
@@ -11262,7 +11347,7 @@
         }
 
         if (url && rezka2_fix_stream && name === 'rezka2') {
-          return url.replace(/\/\/stream\.voidboost\.(cc|top|link|club)\//, '//femeretes.org/');
+          return url.replace(/\/\/(stream\.voidboost\.(cc|top|link|club)|[^\/]*.ukrtelcdn.net)\//, '//femeretes.org/');
         }
 
         return url;
@@ -11333,7 +11418,7 @@
         search: false,
         kp: false,
         imdb: true,
-        disabled: this.isDebug3()
+        disabled: disable_dbg || this.isDebug3()
       }, {
         name: 'rezka2',
         title: 'HDrezka',
@@ -11741,7 +11826,7 @@
         if (object.movie.original_name) orig_titles.push(object.movie.original_name);
 
         var display = function display(items) {
-          if (items && items.length) {
+          if (items && items.length && items.forEach) {
             var is_sure = false;
             var is_imdb = false;
             items.forEach(function (c) {
@@ -11881,8 +11966,8 @@
           };
 
           vcdn_search_by_id(function (data) {
-            if (data && data.length) display(data);else vcdn_search_by_title(function (data) {
-              if (data && data.length) display(data);else error();
+            if (data && data.length && data.forEach) display(data);else vcdn_search_by_title(function (data) {
+              if (data && data.length && data.forEach) display(data);else error();
             }, error);
           }, error);
         };
@@ -11907,8 +11992,8 @@
           };
 
           kp_search_by_id(function (data) {
-            if (data && data.length) display(data);else kp_search_by_title(function (data) {
-              if (data && data.length) display(data);else error();
+            if (data && data.length && data.forEach) display(data);else kp_search_by_title(function (data) {
+              if (data && data.length && data.forEach) display(data);else error();
             }, error);
           }, error);
         };
@@ -11929,19 +12014,19 @@
               };
 
               kp_search_by_title(function (data) {
-                if (data && data.length) display(data);else error2();
+                if (data && data.length && data.forEach) display(data);else error2();
               }, error2);
             }
           };
 
           vcdn_search_by_id(function (data) {
-            if (data && data.length) display(data);else error();
+            if (data && data.length && data.forEach) display(data);else error();
           }, error);
         };
 
         var kp_search_imdb = function kp_search_imdb() {
           kp_search_by_id(function (data) {
-            if (data && data.length) display(data);else vcdn_search_imdb();
+            if (data && data.length && data.forEach) display(data);else vcdn_search_imdb();
           }, vcdn_search_imdb);
         };
 
@@ -12307,6 +12392,24 @@
       };
 
       this.getDefaultQuality = function (qualityMap, defValue) {
+        {
+          var needHackHlsLink = function needHackHlsLink(link) {
+            return link && endsWith(link, '.m3u8') && link.lastIndexOf('?') <= link.lastIndexOf('/');
+          };
+
+          if (qualityMap) {
+            for (var ID in qualityMap) {
+              if (needHackHlsLink(qualityMap[ID])) {
+                qualityMap[ID] += '?';
+              }
+            }
+          }
+
+          if (needHackHlsLink(defValue)) {
+            defValue += '?';
+          }
+        }
+
         if (qualityMap) {
           var preferably = forcedQuality;
 
@@ -12691,7 +12794,7 @@
       };
     }
 
-    var mod_version = '02.03.2025';
+    var mod_version = '02.04.2025';
     console.log('App', 'start address:', window.location.href);
     var isMSX = !!(window.TVXHost || window.TVXManager);
     var isTizen = navigator.userAgent.toLowerCase().indexOf('tizen') !== -1;
@@ -12722,6 +12825,7 @@
 
     Lampa.Storage.set('online_mod_proxy_lumex', Lampa.Platform.is('android') ? 'false' : 'true');
     Lampa.Storage.set('online_mod_proxy_filmix', Lampa.Platform.is('android') ? 'false' : 'true');
+    Lampa.Storage.set('online_mod_proxy_videoseed', Lampa.Platform.is('android') ? 'false' : 'true');
     Lampa.Storage.set('online_mod_proxy_vibix', Lampa.Platform.is('android') ? 'false' : 'true');
     Lampa.Storage.set('online_mod_proxy_redheadsound', Lampa.Platform.is('android') ? 'false' : 'true');
     Lampa.Storage.set('online_mod_proxy_videodb', 'false');
@@ -12785,6 +12889,7 @@
     Lampa.Params.select('online_mod_fancdn_name', '', '');
     Lampa.Params.select('online_mod_fancdn_password', '', '');
     Lampa.Params.select('online_mod_fancdn_cookie', '', '');
+    Lampa.Params.select('online_mod_fancdn_token', '', '');
     Lampa.Params.select('online_mod_proxy_other_url', '', '');
     Lampa.Params.select('online_mod_secret_password', '', '');
 
@@ -13141,6 +13246,13 @@
         be: 'Запоўніць кукі для FanSerials',
         en: 'Fill cookie for FanSerials',
         zh: '为FanSerials填充Cookie'
+      },
+      online_mod_fancdn_token: {
+        ru: 'Токен для FanCDN',
+        uk: 'Токен для FanCDN',
+        be: 'Токен для FanCDN',
+        en: 'Token for FanCDN',
+        zh: 'FanCDN 代币'
       },
       online_mod_authorization_required: {
         ru: 'Требуется авторизация',
@@ -14004,6 +14116,10 @@
 
     if (Utils.isDebug()) {
       template += "\n    <div class=\"settings-param selector\" data-name=\"online_mod_fancdn_fill_cookie\" data-static=\"true\">\n        <div class=\"settings-param__name\">#{online_mod_fancdn_fill_cookie}</div>\n        <div class=\"settings-param__status\"></div>\n    </div>";
+    }
+
+    if (Utils.isDebug()) {
+      template += "\n    <div class=\"settings-param selector\" data-name=\"online_mod_fancdn_token\" data-type=\"input\" data-string=\"true\" placeholder=\"#{settings_cub_not_specified}\">\n        <div class=\"settings-param__name\">#{online_mod_fancdn_token}</div>\n        <div class=\"settings-param__value\"></div>\n    </div>";
     }
 
     template += "\n    <div class=\"settings-param selector\" data-name=\"online_mod_use_stream_proxy\" data-type=\"toggle\">\n        <div class=\"settings-param__name\">#{online_mod_use_stream_proxy}</div>\n        <div class=\"settings-param__value\"></div>\n    </div>";
