@@ -1,5 +1,5 @@
 //https://nb557.github.io/plugins/online_mod.js
-//06.04.2025 - Fix
+//21.04.2025 - Fix
 
 (function () {
     'use strict';
@@ -15,6 +15,7 @@
     }
 
     var myIp = '';
+    var currentFanserialsHost = '';
 
     function decodeSecret(input, password) {
       var result = '';
@@ -71,8 +72,16 @@
       return url;
     }
 
+    function setCurrentFanserialsHost(host) {
+      currentFanserialsHost = host;
+    }
+
+    function getCurrentFanserialsHost() {
+      return currentFanserialsHost;
+    }
+
     function fanserialsHost() {
-      return decodeSecret([89, 69, 64, 69, 67, 14, 26, 26, 67, 0, 7, 31, 82, 84, 94, 71, 80, 71, 89, 81, 93, 31, 64, 67], atob('RnVja0Zhbg=='));
+      return currentFanserialsHost || decodeSecret([89, 69, 64, 69, 67, 14, 26, 26, 86, 81, 95, 66, 81, 71, 89, 85, 89, 27, 68, 70], atob('RnVja0Zhbg=='));
     }
 
     function fancdnHost() {
@@ -333,6 +342,8 @@
       isDebug2: isDebug2,
       rezka2Mirror: rezka2Mirror,
       kinobaseMirror: kinobaseMirror,
+      setCurrentFanserialsHost: setCurrentFanserialsHost,
+      getCurrentFanserialsHost: getCurrentFanserialsHost,
       fanserialsHost: fanserialsHost,
       fancdnHost: fancdnHost,
       filmixToken: filmixToken,
@@ -342,6 +353,7 @@
       setMyIp: setMyIp,
       getMyIp: getMyIp,
       proxy: proxy,
+      parseURL: parseURL,
       fixLink: fixLink,
       fixLinkProtocol: fixLinkProtocol,
       proxyLink: proxyLink,
@@ -1137,21 +1149,23 @@
         object = _object;
         select_title = object.search || object.movie.title;
         var error = component.empty.bind(component);
-        var found = false;
         var src = embed;
 
         if (data && data[0] && data[0].content_type && data[0].id) {
-          found = true;
-          src += 'findID/' + encodeURIComponent(data[0].id) + '/' + encodeURIComponent(data[0].content_type.replace(/_/g, '-'));
+          var imdb_id = data[0].imdb_id || 'null';
+          var kp_id = data[0].kp_id || 'null';
+          src += 'searchId/mod/' + encodeURIComponent(imdb_id) + '/' + encodeURIComponent(kp_id);
         } else {
-          var imdb_id = (+kinopoisk_id ? !object.clarification && object.movie.imdb_id : kinopoisk_id) || 'null';
-          var kp_id = +kinopoisk_id ? kinopoisk_id : 'null';
-          src += 'searchId/' + encodeURIComponent(imdb_id) + '/' + encodeURIComponent(kp_id);
+          var _imdb_id = (+kinopoisk_id ? !object.clarification && object.movie.imdb_id : kinopoisk_id) || 'null';
+
+          var _kp_id = +kinopoisk_id ? kinopoisk_id : 'null';
+
+          src += 'searchId/mod/' + encodeURIComponent(_imdb_id) + '/' + encodeURIComponent(_kp_id);
         }
 
         lumex_api(src + api_suffix, function (json) {
-          if (found && json) success(json);else if (!found && json && json.content_type && json.id) {
-            var src2 = embed + 'findID/' + encodeURIComponent(json.id) + '/' + encodeURIComponent(json.content_type.replace(/_/g, '-'));
+          if (json && json.content_type && json.id && json.plgs) {
+            var src2 = embed + 'finds/' + encodeURIComponent(json.plgs) + '/' + encodeURIComponent(json.id) + '/' + encodeURIComponent(json.content_type.replace(/_/g, '-'));
             lumex_api(src2 + api_suffix, function (json) {
               if (json) success(json);else component.emptyForQuery(select_title);
             }, error);
@@ -6667,8 +6681,18 @@
       var object = _object;
       var select_title = '';
       var prox = component.proxy('videoseed');
+      var user_agent = Utils.baseUserAgent();
       var embed = atob('aHR0cHM6Ly92aWRlb3NlZWQudHYvYXBpdjIucGhw');
       var suffix = Utils.decodeSecret([69, 91, 92, 84, 89, 5, 1, 85, 83, 83, 6, 5, 14, 4, 84, 92, 4, 85, 84, 9, 87, 13, 3, 85, 2, 9, 83, 87, 80, 83, 80, 81, 83, 2, 14, 12, 7, 2], atob('U2Vla1Rva2Vu'));
+      var headers = Lampa.Platform.is('android') ? {
+        'User-Agent': user_agent
+      } : {};
+      var prox_enc = '';
+
+      if (prox) {
+        prox_enc += 'param/User-Agent=' + encodeURIComponent(user_agent) + '/';
+      }
+
       var filter_items = {};
       var choice = {
         season: 0,
@@ -6700,7 +6724,7 @@
         api = Lampa.Utils.addUrlComponent(api, 'kp=' + encodeURIComponent(kinopoisk_id));
         network.clear();
         network.timeout(10000);
-        network["native"](component.proxyLink(api, prox, '', 'enc2'), function (json) {
+        network["native"](component.proxyLink(api, prox, prox_enc, 'enc2'), function (json) {
           if (json && json.data && json.data[0] && json.data[0].iframe) {
             var url = json.data[0].iframe;
             var pos = url.indexOf('?');
@@ -6711,16 +6735,19 @@
 
             network.clear();
             network.timeout(10000);
-            network["native"](component.proxyLink(url, prox), function (str) {
+            network["native"](component.proxyLink(url, prox, prox_enc), function (str) {
               parse(str || '', empty);
             }, function (a, c) {
               error(network.errorDecode(a, c));
             }, false, {
-              dataType: 'text'
+              dataType: 'text',
+              headers: headers
             });
           } else empty();
         }, function (a, c) {
           error(network.errorDecode(a, c));
+        }, false, {
+          headers: headers
         });
       };
 
@@ -6774,7 +6801,7 @@
 
         if (find) {
           try {
-            json = find && (0, eval)('"use strict"; (function(){ var token = ""; return ' + find[1] + '; })();');
+            json = find && (0, eval)('"use strict"; (function(){ var token = "", domain_name = ""; return ' + find[1] + '; })();');
           } catch (e) {}
         } else {
           find = str.match(/Playerjs\("([^"]*)"\);/);
@@ -8972,7 +8999,7 @@
       var object = _object;
       var select_title = '';
       var prox = component.proxy('anilibria2');
-      var embed = 'https://anilibria.top/api/v1/';
+      var embed = 'https://anilibria.wtf/api/v1/';
       var filter_items = {};
       var choice = {
         season: 0,
@@ -12806,7 +12833,7 @@
       };
     }
 
-    var mod_version = '06.04.2025';
+    var mod_version = '21.04.2025';
     console.log('App', 'start address:', window.location.href);
     var isMSX = !!(window.TVXHost || window.TVXManager);
     var isTizen = navigator.userAgent.toLowerCase().indexOf('tizen') !== -1;
@@ -13415,37 +13442,92 @@
       Lampa.Template.add('online_mod_folder', "<div class=\"online selector\">\n        <div class=\"online__body\">\n            <div style=\"position: absolute;left: 0;top: -0.3em;width: 2.4em;height: 2.4em\">\n                <svg style=\"height: 2.4em; width:  2.4em;\" viewBox=\"0 0 128 112\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n                    <rect y=\"20\" width=\"128\" height=\"92\" rx=\"13\" fill=\"white\"/>\n                    <path d=\"M29.9963 8H98.0037C96.0446 3.3021 91.4079 0 86 0H42C36.5921 0 31.9555 3.3021 29.9963 8Z\" fill=\"white\" fill-opacity=\"0.23\"/>\n                    <rect x=\"11\" y=\"8\" width=\"106\" height=\"76\" rx=\"13\" fill=\"white\" fill-opacity=\"0.51\"/>\n                </svg>\n            </div>\n            <div class=\"online__title\" style=\"padding-left: 2.1em;\">{title}</div>\n            <div class=\"online__quality\" style=\"padding-left: 3.4em;\">{quality}{info}</div>\n        </div>\n    </div>");
     }
 
+    function checkMyIp(onComplite) {
+      var ip = Utils.getMyIp();
+
+      if (ip || Lampa.Storage.field('online_mod_proxy_find_ip') !== true) {
+        onComplite();
+        return;
+      }
+
+      network.clear();
+      network.timeout(10000);
+      network.silent('https://api.ipify.org/?format=json', function (json) {
+        if (json.ip) Utils.setMyIp(json.ip);
+        onComplite();
+      }, function (a, c) {
+        onComplite();
+      });
+    }
+
+    function checkCurrentFanserialsHost(onComplite) {
+      var host = Utils.getCurrentFanserialsHost();
+
+      if (host || !Utils.isDebug()) {
+        onComplite();
+        return;
+      }
+
+      var prox = Utils.proxy('fancdn');
+      var prox_enc = '';
+      var returnHeaders = androidHeaders;
+
+      if (!prox && !returnHeaders) {
+        onComplite();
+        return;
+      }
+
+      var user_agent = Utils.baseUserAgent();
+      var headers = Lampa.Platform.is('android') ? {
+        'User-Agent': user_agent
+      } : {};
+
+      if (prox) {
+        prox_enc += 'param/User-Agent=' + encodeURIComponent(user_agent) + '/';
+        prox_enc += 'cookie_plus/param/Cookie=/';
+        returnHeaders = false;
+      }
+
+      var url = Utils.fanserialsHost() + '/';
+      network.clear();
+      network.timeout(10000);
+      network["native"](Utils.proxyLink(url, prox, prox_enc), function (json) {
+        if (json && json.currentUrl) {
+          var _url = Utils.parseURL(json.currentUrl);
+
+          Utils.setCurrentFanserialsHost(_url.origin);
+        }
+
+        onComplite();
+      }, function (a, c) {
+        onComplite();
+      }, false, {
+        headers: headers,
+        returnHeaders: returnHeaders
+      });
+    }
+
     function loadOnline(object) {
-      var onComplite = function onComplite() {
-        online_loading = false;
-        resetTemplates();
-        Lampa.Component.add('online_mod', component);
-        Lampa.Activity.push({
-          url: '',
-          title: Lampa.Lang.translate('online_mod_title_full'),
-          component: 'online_mod',
-          search: object.title,
-          search_one: object.title,
-          search_two: object.original_title,
-          movie: object,
-          page: 1
-        });
-      };
-
+      if (online_loading) return;
+      online_loading = true;
       Utils.setMyIp('');
-
-      if (Lampa.Storage.field('online_mod_proxy_find_ip') === true) {
-        if (online_loading) return;
-        online_loading = true;
-        network.clear();
-        network.timeout(10000);
-        network.silent('https://api.ipify.org/?format=json', function (json) {
-          if (json.ip) Utils.setMyIp(json.ip);
-          onComplite();
-        }, function (a, c) {
-          onComplite();
+      checkMyIp(function () {
+        checkCurrentFanserialsHost(function () {
+          online_loading = false;
+          resetTemplates();
+          Lampa.Component.add('online_mod', component);
+          Lampa.Activity.push({
+            url: '',
+            title: Lampa.Lang.translate('online_mod_title_full'),
+            component: 'online_mod',
+            search: object.title,
+            search_one: object.title,
+            search_two: object.original_title,
+            movie: object,
+            page: 1
+          });
         });
-      } else onComplite();
+      });
     } // нужна заглушка, а то при страте лампы говорит пусто
 
 
