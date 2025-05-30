@@ -1,5 +1,5 @@
 //https://nb557.github.io/plugins/online_mod.js
-//21.04.2025 - Fix
+//26.05.2025 - Fix
 
 (function () {
     'use strict';
@@ -81,7 +81,7 @@
     }
 
     function fanserialsHost() {
-      return currentFanserialsHost || decodeSecret([89, 69, 64, 69, 67, 14, 26, 26, 86, 81, 95, 66, 81, 71, 89, 85, 89, 27, 68, 70], atob('RnVja0Zhbg=='));
+      return currentFanserialsHost || decodeSecret([89, 69, 64, 69, 67, 14, 26, 26, 86, 94, 66, 84, 70, 92, 81, 88, 70, 27, 94, 85, 69], atob('RnVja0Zhbg=='));
     }
 
     function fancdnHost() {
@@ -6683,7 +6683,7 @@
       var prox = component.proxy('videoseed');
       var user_agent = Utils.baseUserAgent();
       var embed = atob('aHR0cHM6Ly92aWRlb3NlZWQudHYvYXBpdjIucGhw');
-      var suffix = Utils.decodeSecret([69, 91, 92, 84, 89, 5, 1, 85, 83, 83, 6, 5, 14, 4, 84, 92, 4, 85, 84, 9, 87, 13, 3, 85, 2, 9, 83, 87, 80, 83, 80, 81, 83, 2, 14, 12, 7, 2], atob('U2Vla1Rva2Vu'));
+      var suffix = Utils.decodeSecret([69, 91, 92, 84, 89, 5, 87, 5, 87, 9, 8, 5, 1, 3, 7, 12, 87, 11, 9, 3, 1, 2, 84, 8, 86, 12, 85, 3, 5, 9, 7, 4, 83, 80, 14, 10, 80, 5], atob('U2Vla1Rva2Vu'));
       var headers = Lampa.Platform.is('android') ? {
         'User-Agent': user_agent
       } : {};
@@ -11379,7 +11379,7 @@
           if (name === 'lumex') return url;
 
           if (name === 'rezka2') {
-            return url.replace(/\/\/(stream\.voidboost\.(cc|top|link|club)|[^\/]*.ukrtelcdn.net|vdbmate.org|sambray.org|femeretes.org)\//, rezka2_prx_ukr);
+            return url.replace(/\/\/(stream\.voidboost\.(cc|top|link|club)|[^\/]*.ukrtelcdn.net|vdbmate.org|sambray.org|rumbegg.org|laptostack.org|frntroy.org|femeretes.org)\//, rezka2_prx_ukr);
           }
 
           return (prefer_http ? 'http://apn.cfhttp.top/' : 'https://apn.watch/') + url;
@@ -12833,7 +12833,7 @@
       };
     }
 
-    var mod_version = '21.04.2025';
+    var mod_version = '26.05.2025';
     console.log('App', 'start address:', window.location.href);
     var isMSX = !!(window.TVXHost || window.TVXManager);
     var isTizen = navigator.userAgent.toLowerCase().indexOf('tizen') !== -1;
@@ -12922,6 +12922,8 @@
       'prx.ukrtelcdn.net': 'prx.ukrtelcdn.net',
       'prx-cogent.ukrtelcdn.net': 'prx-cogent.ukrtelcdn.net',
       'prx2-cogent.ukrtelcdn.net': 'prx2-cogent.ukrtelcdn.net',
+      'prx3-cogent.ukrtelcdn.net': 'prx3-cogent.ukrtelcdn.net',
+      'prx4-cogent.ukrtelcdn.net': 'prx4-cogent.ukrtelcdn.net',
       'prx-ams.ukrtelcdn.net': 'prx-ams.ukrtelcdn.net',
       'prx2-ams.ukrtelcdn.net': 'prx2-ams.ukrtelcdn.net'
     }, 'prx.ukrtelcdn.net');
@@ -13468,7 +13470,7 @@
         return;
       }
 
-      var prox = Utils.proxy('fancdn');
+      var prox = Utils.proxy('cookie');
       var prox_enc = '';
       var returnHeaders = androidHeaders;
 
