@@ -1,5 +1,4 @@
-//https://nb557.github.io/plugins/online_mod.js
-//17.07.2025 - Fix
+//31.08.2025 - Fix
 
 (function () {
     'use strict';
@@ -81,11 +80,15 @@
     }
 
     function fanserialsHost() {
-      return currentFanserialsHost || decodeSecret([89, 69, 64, 69, 67, 14, 26, 26, 86, 81, 95, 66, 81, 71, 89, 85, 89, 27, 83, 83], atob('RnVja0Zhbg=='));
+      return currentFanserialsHost || decodeSecret([89, 69, 64, 69, 67, 14, 26, 26, 1, 86, 80, 95, 71, 80, 66, 93, 84, 89, 67, 30, 67, 68], atob('RnVja0Zhbg=='));
     }
 
     function fancdnHost() {
       return fanserialsHost();
+    }
+
+    function filmixHost$1() {
+      return 'https://filmix.my';
     }
 
     function filmixToken(dev_id, token) {
@@ -110,6 +113,31 @@
 
     function getMyIp() {
       return myIp;
+    }
+
+    function checkMyIp$1(network, onComplite) {
+      var ip = getMyIp();
+
+      if (ip) {
+        onComplite();
+        return;
+      }
+
+      network.clear();
+      network.timeout(10000);
+      network.silent('https://api.ipify.org/?format=json', function (json) {
+        if (json.ip) setMyIp(json.ip);
+        onComplite();
+      }, function (a, c) {
+        network.clear();
+        network.timeout(10000);
+        network.silent(proxy('ip') + 'jsonip', function (json) {
+          if (json.ip) setMyIp(json.ip);
+          onComplite();
+        }, function (a, c) {
+          onComplite();
+        });
+      });
     }
 
     function proxy(name) {
@@ -140,10 +168,11 @@
       if (name === 'cookie') return user_proxy1;
       if (name === 'cookie2') return user_proxy2;
       if (name === 'cookie3') return user_proxy3;
+      if (name === 'ip') return proxy2;
 
       if (Lampa.Storage.field('online_mod_proxy_' + name) === true) {
         if (name === 'iframe') return user_proxy2;
-        if (name === 'lumex') return user_proxy2;
+        if (name === 'lumex') return proxy_other ? proxy_secret : proxy_apn;
         if (name === 'rezka') return user_proxy2;
         if (name === 'rezka2') return user_proxy2;
         if (name === 'kinobase') return proxy_apn;
@@ -346,12 +375,14 @@
       getCurrentFanserialsHost: getCurrentFanserialsHost,
       fanserialsHost: fanserialsHost,
       fancdnHost: fancdnHost,
+      filmixHost: filmixHost$1,
       filmixToken: filmixToken,
       filmixUserAgent: filmixUserAgent,
       baseUserAgent: baseUserAgent,
       vcdnToken: vcdnToken,
       setMyIp: setMyIp,
       getMyIp: getMyIp,
+      checkMyIp: checkMyIp$1,
       proxy: proxy,
       parseURL: parseURL,
       fixLink: fixLink,
@@ -540,7 +571,6 @@
         prox_enc += 'param/Sec-Fetch-Dest=empty/';
         prox_enc += 'param/Sec-Fetch-Mode=cors/';
         prox_enc += 'param/Sec-Fetch-Site=same-site/';
-        prox_enc += 'enc/aXAyNjA2OjQ3MDA6MzAzMTo6NjgxNTo0NmQ5Lw%3D%3D/';
       }
 
       var prox_enc2 = prox_enc;
@@ -876,7 +906,7 @@
             return {
               label: quality ? quality + 'p' : '360p ~ 1080p',
               quality: quality,
-              file: component.proxyStream(component.fixLink(link, url), 'lumex')
+              file: component.proxyLink(component.fixLink(link, url), prox, prox_enc)
             };
           });
           items.sort(function (a, b) {
@@ -927,13 +957,13 @@
         var hls_file = file.replace(/\/\d\d\d+([^\/]*\.m3u8)$/, '/hls$1');
         network.clear();
         network.timeout(5000);
-        network["native"](component.proxyStream(hls_file, 'lumex'), function (str) {
+        network["native"](component.proxyLink(hls_file, prox, prox_enc), function (str) {
           parseStream(element, call, error, extractItems, str, hls_file);
         }, function (a, c) {
           if (file != hls_file) {
             network.clear();
             network.timeout(5000);
-            network["native"](component.proxyStream(file, 'lumex'), function (str) {
+            network["native"](component.proxyLink(file, prox, prox_enc), function (str) {
               parseStream(element, call, error, extractItems, str, file);
             }, function (a, c) {
               error();
@@ -958,7 +988,7 @@
           link = component.fixLinkProtocol(link, prefer_http);
           return {
             label: item.label,
-            url: component.proxyStreamSubs(link, 'lumex')
+            url: component.proxyLink(link, prox, prox_enc)
           };
         }).filter(function (s) {
           return s.url;
@@ -973,7 +1003,7 @@
 
       function getStream(element, call, error) {
         if (element.stream) return call(element);
-        if (!element.media.playlist) error();
+        if (!element.media.playlist) return error();
         var url = component.fixLink(element.media.playlist, embed);
         network.clear();
         network.timeout(10000);
@@ -988,7 +1018,7 @@
               return;
             }
 
-            element.stream = component.proxyStream(url, 'lumex');
+            element.stream = component.proxyLink(url, prox, prox_enc);
             element.qualitys = false;
             call(element);
           } else error();
@@ -1159,6 +1189,9 @@
           src += encodeURIComponent(_kp_id) + '/' + encodeURIComponent(_imdb_id);
         }
 
+        var original_title = !object.clarification && (object.movie.original_title || object.movie.original_name) || '';
+        var search_date = object.search_date || !object.clarification && (object.movie.release_date || object.movie.first_air_date || object.movie.last_air_date) || '0000';
+        var search_year = parseInt((search_date + '').slice(0, 4));
         component.checkMyIp(function () {
           var ip = Utils.getMyIp();
 
@@ -1170,6 +1203,8 @@
           var api = src + '/' + cub_id + api_suffix;
           api = Lampa.Utils.addUrlComponent(api, 'ip=' + encodeURIComponent(ip));
           api = Lampa.Utils.addUrlComponent(api, 'search=' + encodeURIComponent(select_title));
+          api = Lampa.Utils.addUrlComponent(api, 'original_title=' + encodeURIComponent(original_title));
+          api = Lampa.Utils.addUrlComponent(api, 'year=' + search_year);
           lumex_api(api, function (json) {
             if (json) success(json);else component.emptyForQuery(select_title);
           }, error);
@@ -1381,8 +1416,10 @@
 
       function getStream(element, call, error) {
         if (element.stream) return call(element);
-        if (!element.media.url) error();
-        lumex_api(element.media.url, function (json) {
+        var ip = Utils.getMyIp();
+        if (!element.media.url || !ip) return error();
+        var api = element.media.url + '/' + encodeURIComponent(ip) + api_suffix;
+        lumex_api(api, function (json) {
           if (json && json.url) {
             element.stream = json.url;
             element.qualitys = json.qualitys || false;
@@ -4023,7 +4060,7 @@
       }
 
       var embed = 'http://filmixapp.cyou/api/v2/';
-      var site = 'https://filmix.quest/';
+      var site = Utils.filmixHost() + '/';
       var select_title = '';
       var prefer_http = Lampa.Storage.field('online_mod_prefer_http') === true;
       var filter_items = {};
@@ -7678,7 +7715,7 @@
 
       var token = Utils.decodeSecret([83, 7, 0, 1, 0, 3, 7, 3, 12, 14, 81, 4, 6, 1, 84, 5, 4, 10, 84, 6, 1, 0, 7, 82, 82, 83, 0, 0, 81, 6]);
       var embed = 'https://api.apbugall.org/?token=' + token;
-      var decrypt = Utils.decodeSecret([31, 82, 68, 88, 87, 67, 95, 95, 87, 31, 71, 69, 68, 24, 23, 67, 66, 85, 27, 20, 69, 89, 95, 82, 88, 28, 25, 86, 66, 0, 31, 79, 23, 64, 81, 75, 23, 81, 73, 66, 70, 86, 85, 68, 25, 10, 20, 74, 75, 15, 23, 64, 81, 75, 23, 92, 94, 69, 64, 23, 11, 16, 76, 69, 88, 31, 91, 85, 67, 85, 88, 17, 24, 106, 25, 94, 64, 67, 70, 67, 6, 13, 104, 30, 106, 27, 108, 104, 108, 22, 106, 31, 24, 106, 27, 24, 31, 11, 25, 94, 82, 17, 30, 92, 88, 69, 68, 16, 76, 20, 84, 78, 64, 69, 87, 83, 77, 25, 68, 94, 69, 64, 83, 87, 68, 88, 23, 9, 17, 17, 64, 88, 93, 85, 87, 10, 19, 17, 29, 20, 82, 88, 83, 86, 83, 81, 100, 100, 125, 116, 89, 93, 73, 88, 90, 84, 88, 64, 31, 66, 95, 82, 82, 90, 24, 22, 31, 23, 30, 81, 79, 6, 20, 14, 22, 19, 17, 87, 70, 8, 10, 19, 17, 29, 20, 86, 64, 1, 25, 13, 20, 22, 17, 29, 23, 29, 16, 30, 17, 85, 68, 66, 91, 71, 90, 81, 64, 10, 4, 23, 87, 65, 83, 95, 95, 4, 17, 71, 68, 84, 64, 94, 66, 92, 92, 10, 19, 10, 22, 66, 86, 68, 16, 75, 82, 82, 84, 68, 81, 69, 22, 13, 25, 66, 70, 93, 13, 20, 65, 87, 66, 25, 66, 71, 84, 68, 107, 86, 81, 85, 87, 67, 20, 12, 22, 19, 122, 89, 74, 80, 91, 88, 80, 25, 1, 25, 6, 16, 17, 96, 93, 95, 82, 91, 64, 69, 16, 119, 99, 20, 0, 6, 26, 7, 13, 16, 110, 94, 90, 7, 2, 15, 23, 78, 6, 13, 30, 20, 112, 70, 68, 91, 83, 103, 92, 85, 127, 88, 66, 27, 2, 5, 7, 23, 4, 2, 17, 30, 127, 127, 98, 125, 117, 27, 20, 93, 95, 95, 82, 22, 119, 92, 84, 95, 94, 31, 20, 116, 94, 66, 86, 90, 81, 30, 7, 7, 0, 24, 0, 23, 7, 26, 1, 22, 103, 86, 80, 81, 75, 94, 27, 4, 5, 3, 25, 5, 6, 30, 12, 20, 71, 87, 70, 23, 87, 83, 90, 82, 68, 69, 69, 107, 94, 82, 16, 4, 23, 19, 1, 3, 82, 15, 6, 0, 13, 82, 4, 3, 83, 1, 2, 7, 6, 13, 1, 0, 6, 15, 7, 5, 85, 1, 90, 5, 0, 2, 4, 81, 86, 80, 0, 8, 5, 80, 87, 5, 7, 15, 6, 3, 95, 84, 5, 84, 82, 86, 84, 15, 82, 15, 15, 87, 80, 82, 4, 86, 14, 84, 0, 84, 0, 4, 17, 15, 23, 83, 72, 77, 69, 85, 82, 66, 26, 83, 89, 93, 88, 94, 90, 17, 11, 20, 95, 89, 67, 77, 108, 5, 108, 22, 31, 23, 17, 31, 30, 12, 20, 84, 78, 64, 69, 87, 83, 77, 25, 68, 67, 89, 76, 5, 22, 13, 25, 31, 19, 65, 87, 70, 86, 91, 31, 118, 69, 93, 86, 95, 90, 10, 17, 16, 18, 23, 81, 95, 85, 91, 83, 83, 101, 107, 126, 119, 94, 91, 68, 88, 88, 85, 87, 67, 28, 89, 89, 71, 67, 109, 1, 100, 30, 20, 26, 22, 19, 24, 17, 25, 25, 28, 20, 25, 17, 68, 86, 68, 81, 84, 24, 102, 84, 80, 81, 69, 83, 66, 4, 16, 20, 26, 22, 81, 89, 85, 95, 93, 82, 97, 99, 127, 119, 88, 91, 64, 86, 89, 81, 95, 66, 28, 69, 83, 86, 92, 69, 81, 67, 31, 20, 28, 22, 23, 22, 16, 29, 17, 29, 20, 31, 17, 64, 88, 69, 85, 92, 25, 97, 68, 83, 66, 20, 118, 83, 84, 88, 64, 10, 17, 16, 18, 23, 81, 95, 85, 91, 83, 83, 101, 107, 126, 119, 94, 91, 68, 88, 88, 85, 87, 67, 28, 68, 69, 81, 69, 105, 81, 94, 82, 90, 69, 31, 20, 28, 22, 23, 22, 16, 29, 17, 29, 20, 31, 17, 64, 88, 69, 85, 92, 25, 103, 82, 85, 29, 127, 82, 64, 82, 94, 25, 115, 83, 67, 77, 10, 81, 92, 70, 64, 78, 25, 23, 16, 23, 31, 17, 30, 19, 71, 87, 66, 88, 90, 27, 98, 83, 87, 26, 112, 85, 77, 84, 92, 28, 123, 91, 83, 83, 13, 90, 88, 70, 66, 25, 19, 30, 22, 27, 25, 31, 19, 65, 87, 70, 86, 91, 31, 106, 82, 87, 28, 112, 81, 67, 85, 88, 20, 100, 93, 69, 83, 9, 68, 87, 93, 92, 26, 91, 67, 95, 83, 94, 88, 31, 30, 30, 20, 26, 22, 28, 16, 70, 81, 75, 86, 89, 30, 110, 25, 101, 83, 65, 76, 82, 71, 69, 83, 80, 26, 97, 89, 77, 95, 9, 105, 123, 120, 127, 66, 68, 73, 101, 81, 64, 67, 81, 68, 66, 31, 30, 30, 15, 17, 83, 76, 67, 68, 81, 90, 67, 26, 89, 83, 85, 83, 83, 66, 74, 23, 9, 17, 122, 85, 90, 70, 81, 23, 103, 88, 80, 66, 82, 88, 68, 93, 23, 94, 71, 25, 17, 85, 89, 82, 66, 86, 94, 80, 22, 31, 20, 8, 22, 75, 25, 16, 123, 67, 95, 83, 94, 88, 23, 3, 23, 92, 94, 69, 64, 108, 7, 109, 21, 23, 19, 99, 83, 82, 82, 68, 85, 75, 16, 14, 17, 68, 81, 81, 83, 66, 92, 69, 24, 17, 17, 97, 68, 83, 66, 20, 118, 83, 84, 88, 64, 16, 12, 16, 76, 68, 81, 67, 105, 85, 80, 83, 94, 77, 27, 20, 22, 101, 81, 84, 27, 118, 92, 67, 87, 89, 27, 112, 82, 69, 68, 30, 13, 20, 22, 83, 89, 71, 66, 73, 30, 27, 20, 22, 101, 81, 84, 27, 118, 92, 67, 87, 89, 27, 121, 88, 82, 85, 30, 13, 20, 22, 85, 91, 69, 69, 23, 21, 23, 19, 98, 83, 87, 26, 112, 85, 77, 84, 92, 28, 101, 93, 67, 83, 23, 3, 23, 19, 66, 87, 89, 82, 27, 95, 75, 94, 83, 88, 88, 19, 27, 22, 23, 97, 26, 102, 84, 71, 65, 82, 69, 68, 92, 83, 25, 102, 95, 64, 95, 17, 10, 25, 16, 108, 124, 122, 124, 67, 66, 64, 107, 82, 69, 68, 83, 71, 67, 17, 16, 68, 23, 14, 17, 77, 73, 12, 22, 70, 88, 69, 20, 68, 69, 81, 69, 22, 13, 25, 68, 64, 67, 24, 89, 86, 66, 83, 81, 31, 27, 13, 91, 81, 67, 87, 16, 87, 86, 89, 84, 11, 22, 65, 95, 85, 78, 71, 91, 67, 66, 22, 25, 28, 12, 84, 82, 64, 80, 22, 90, 86, 91, 85, 4, 21, 111, 111, 20, 105, 29, 20, 30, 19, 23, 87, 94, 88, 64, 82, 88, 68, 4, 21, 28, 106, 104, 22, 106, 28, 25, 27, 24, 29, 10, 22, 93, 81, 22, 24, 76, 68, 81, 67, 31, 79, 23, 64, 81, 75, 23, 71, 17, 11, 20, 66, 69, 85, 75, 108, 5, 108, 24, 71, 66, 84, 67, 77, 69, 93, 95, 81, 28, 1, 31, 11, 25, 65, 85, 67, 22, 88, 23, 11, 16, 74, 25, 88, 84, 88, 83, 67, 94, 11, 25, 65, 85, 67, 22, 76, 23, 11, 16, 9, 12, 20, 87, 89, 70, 31, 64, 81, 75, 23, 93, 17, 11, 20, 7, 13, 16, 80, 23, 8, 17, 90, 15, 23, 95, 27, 18, 30, 20, 73, 22, 9, 23, 30, 72, 25, 28, 20, 66, 24, 87, 95, 87, 66, 122, 88, 80, 84, 119, 64, 31, 95, 25, 16, 23, 17, 17, 90, 15, 23, 64, 81, 75, 23, 85, 82, 85, 81, 71, 66, 67, 102, 84, 91, 95, 66, 70, 88, 90, 67, 25, 10, 20, 66, 24, 71, 66, 84, 67, 77, 69, 93, 95, 81, 28, 91, 22, 29, 25, 79, 29, 17, 29, 20, 68, 24, 67, 76, 85, 71, 69, 68, 93, 89, 81, 24, 9, 27, 20, 93, 22, 25, 23, 78, 25, 25, 28, 20, 22, 74, 19, 23, 29, 16, 88, 84, 87, 84, 70, 64, 68, 105, 89, 93, 12, 20, 84, 78, 64, 69, 87, 83, 77, 25, 68, 67, 89, 76, 5, 22, 27, 4, 23, 19, 65, 87, 70, 86, 91, 31, 123, 86, 81, 67, 27, 119, 88, 88, 68, 75, 88, 88, 66, 11, 19, 23, 29, 16, 92, 89, 87, 94, 82, 81, 98, 100, 121, 122, 88, 89, 65, 89, 90, 82, 88, 68, 17, 86, 87, 82, 83, 68, 67, 69, 111, 90, 88, 90, 69, 68, 91, 91, 69, 25, 25, 28, 20, 22, 25, 19, 12, 22, 89, 95, 23, 28, 125, 87, 89, 71, 87, 30, 105, 91, 85, 69, 80, 91, 69, 91, 30, 80, 68, 28, 22, 87, 90, 83, 68, 95, 80, 83, 19, 24, 31, 79, 23, 83, 72, 77, 69, 85, 82, 66, 26, 95, 83, 81, 93, 82, 70, 66, 109, 19, 117, 87, 85, 75, 26, 119, 94, 88, 64, 69, 89, 92, 74, 16, 105, 17, 11, 20, 86, 85, 83, 92, 71, 64, 66, 105, 87, 88, 88, 68, 75, 88, 88, 66, 13, 20, 74, 22, 77, 25, 82, 76, 69, 68, 85, 84, 66, 30, 74, 67, 70, 84, 87, 89, 104, 70, 66, 86, 79, 6, 17, 11, 20, 31, 17, 64, 88, 69, 85, 92, 25, 123, 69, 95, 87, 80, 89, 9, 22, 22, 31, 23, 83, 94, 90, 88, 80, 84, 99, 102, 126, 117, 95, 84, 71, 91, 95, 83, 90, 67, 30, 88, 86, 68, 64, 106, 7, 105, 30, 22, 27, 25, 16, 27, 22, 31, 20, 28, 22, 24, 30, 71, 85, 67, 87, 89, 24, 100, 85, 95, 82, 70, 84, 68, 9, 16, 22, 27, 25, 82, 90, 82, 89, 80, 82, 99, 98, 112, 116, 91, 92, 70, 91, 89, 83, 94, 77, 31, 92, 94, 69, 64, 108, 7, 109, 25, 28, 20, 22, 25, 19, 30, 22, 27, 25, 16, 27, 22, 31, 20, 28, 22, 24, 30, 71, 85, 67, 87, 89, 24, 99, 67, 92, 69, 25, 112, 81, 81, 89, 66, 13, 30, 23, 31, 17, 83, 90, 84, 89, 84, 92, 98, 102, 120, 117, 91, 90, 70, 95, 87, 82, 90, 69, 30, 65, 68, 83, 66, 102, 86, 83, 84, 88, 64, 30, 22, 27, 25, 16, 27, 22, 31, 15, 23, 83, 72, 77, 69, 85, 82, 66, 26, 68, 66, 66, 92, 86, 89, 110, 94, 81, 86, 82, 85, 75, 68, 20, 12, 22, 120, 86, 91, 64, 88, 25, 100, 93, 87, 64, 81, 89, 66, 84, 25, 93, 66, 30, 19, 86, 88, 84, 75, 88, 93, 85, 17, 29, 23, 9, 16, 66, 23, 19, 126, 68, 93, 80, 95, 94, 30, 13, 20, 89, 89, 71, 67, 109, 1, 100, 27, 20, 22, 100, 81, 81, 83, 66, 92, 69, 19, 11, 22, 92, 88, 69, 68, 98, 6, 105, 17, 29, 20, 16, 25, 23, 21, 23, 19, 100, 69, 81, 69, 27, 113, 94, 82, 90, 69, 17, 14, 23, 67, 67, 92, 69, 107, 80, 81, 81, 89, 66, 16, 68, 23, 14, 17, 77, 73, 12, 22, 77, 25, 69, 81, 69, 67, 70, 89, 22, 85, 65, 67, 70, 80, 85, 64, 12, 22, 77, 16, 25, 87, 80, 90, 88, 31, 77, 77, 21]);
+      var decrypt = Utils.decodeSecret([31, 82, 68, 88, 87, 67, 95, 95, 87, 31, 71, 69, 68, 24, 23, 67, 66, 85, 27, 20, 69, 89, 95, 82, 88, 28, 25, 86, 66, 0, 31, 79, 23, 64, 81, 75, 23, 81, 73, 66, 70, 86, 85, 68, 25, 10, 20, 74, 75, 15, 23, 64, 81, 75, 23, 92, 94, 69, 64, 23, 11, 16, 76, 69, 88, 31, 91, 85, 67, 85, 88, 17, 24, 106, 25, 94, 64, 67, 70, 67, 6, 13, 104, 30, 106, 27, 108, 104, 108, 22, 106, 31, 24, 106, 27, 24, 31, 11, 25, 94, 82, 17, 30, 92, 88, 69, 68, 16, 76, 20, 84, 78, 64, 69, 87, 83, 77, 25, 68, 94, 69, 64, 83, 87, 68, 88, 23, 9, 17, 17, 64, 88, 93, 85, 87, 10, 19, 17, 29, 20, 82, 88, 83, 86, 83, 81, 100, 100, 125, 116, 89, 93, 73, 88, 90, 84, 88, 64, 31, 66, 95, 82, 82, 90, 24, 22, 31, 23, 30, 81, 79, 6, 20, 14, 22, 19, 17, 87, 70, 8, 10, 19, 17, 29, 20, 86, 64, 1, 25, 13, 20, 22, 17, 29, 23, 29, 16, 30, 17, 85, 68, 66, 91, 71, 90, 81, 64, 10, 4, 23, 87, 65, 83, 95, 95, 4, 17, 71, 68, 84, 64, 94, 66, 92, 92, 10, 19, 10, 22, 66, 86, 68, 16, 75, 82, 82, 84, 68, 81, 69, 22, 13, 25, 66, 70, 93, 13, 20, 65, 87, 66, 25, 66, 71, 84, 68, 107, 86, 81, 85, 87, 67, 20, 12, 22, 19, 122, 89, 74, 80, 91, 88, 80, 25, 1, 25, 6, 16, 17, 96, 93, 95, 82, 91, 64, 69, 16, 119, 99, 20, 0, 6, 26, 7, 13, 16, 110, 94, 90, 7, 2, 15, 23, 78, 6, 13, 30, 20, 112, 70, 68, 91, 83, 103, 92, 85, 127, 88, 66, 27, 2, 5, 7, 23, 4, 2, 17, 30, 127, 127, 98, 125, 117, 27, 20, 93, 95, 95, 82, 22, 119, 92, 84, 95, 94, 31, 20, 116, 94, 66, 86, 90, 81, 30, 7, 7, 0, 24, 0, 23, 7, 26, 1, 22, 103, 86, 80, 81, 75, 94, 27, 4, 5, 3, 25, 5, 6, 30, 12, 20, 71, 87, 70, 23, 87, 83, 90, 82, 68, 69, 69, 107, 94, 82, 16, 4, 23, 19, 1, 3, 82, 15, 6, 0, 13, 82, 4, 3, 83, 1, 2, 7, 6, 13, 1, 0, 6, 15, 7, 5, 85, 1, 90, 5, 0, 2, 4, 81, 86, 80, 0, 8, 5, 80, 87, 5, 7, 15, 6, 3, 95, 84, 5, 84, 82, 86, 84, 15, 82, 15, 15, 87, 80, 82, 4, 86, 14, 84, 0, 84, 0, 4, 17, 15, 23, 83, 72, 77, 69, 85, 82, 66, 26, 83, 89, 93, 88, 94, 90, 17, 11, 20, 95, 89, 67, 77, 108, 5, 108, 22, 31, 23, 17, 31, 30, 12, 20, 84, 78, 64, 69, 87, 83, 77, 25, 68, 67, 89, 76, 5, 22, 13, 25, 31, 19, 65, 87, 70, 86, 91, 31, 118, 69, 93, 86, 95, 90, 10, 17, 16, 18, 23, 81, 95, 85, 91, 83, 83, 101, 107, 126, 119, 94, 91, 68, 88, 88, 85, 87, 67, 28, 89, 89, 71, 67, 109, 1, 100, 30, 20, 26, 22, 19, 24, 17, 25, 25, 28, 20, 25, 17, 68, 86, 68, 81, 84, 24, 102, 84, 80, 81, 69, 83, 66, 4, 16, 20, 26, 22, 81, 89, 85, 95, 93, 82, 97, 99, 127, 119, 88, 91, 64, 86, 89, 81, 95, 66, 28, 69, 83, 86, 92, 69, 81, 67, 31, 20, 28, 22, 23, 22, 16, 29, 17, 29, 20, 31, 17, 64, 88, 69, 85, 92, 25, 97, 68, 83, 66, 20, 118, 83, 84, 88, 64, 10, 17, 16, 18, 23, 81, 95, 85, 91, 83, 83, 101, 107, 126, 119, 94, 91, 68, 88, 88, 85, 87, 67, 28, 68, 69, 81, 69, 105, 81, 94, 82, 90, 69, 31, 20, 28, 22, 23, 22, 16, 29, 17, 29, 20, 31, 17, 64, 88, 69, 85, 92, 25, 103, 82, 85, 29, 127, 82, 64, 82, 94, 25, 115, 83, 67, 77, 10, 81, 92, 70, 64, 78, 25, 23, 16, 23, 31, 17, 30, 19, 71, 87, 66, 88, 90, 27, 98, 83, 87, 26, 112, 85, 77, 84, 92, 28, 123, 91, 83, 83, 13, 90, 88, 70, 66, 25, 19, 30, 22, 27, 25, 31, 19, 65, 87, 70, 86, 91, 31, 106, 82, 87, 28, 112, 81, 67, 85, 88, 20, 100, 93, 69, 83, 9, 68, 87, 93, 92, 26, 91, 67, 95, 83, 94, 88, 31, 30, 30, 20, 26, 22, 28, 16, 70, 81, 75, 86, 89, 30, 110, 25, 101, 83, 65, 76, 82, 71, 69, 83, 80, 26, 97, 89, 77, 95, 9, 105, 123, 120, 127, 66, 68, 73, 101, 81, 64, 67, 81, 68, 66, 31, 30, 30, 15, 17, 83, 76, 67, 68, 81, 90, 67, 26, 89, 83, 85, 83, 83, 66, 74, 23, 9, 17, 122, 85, 90, 70, 81, 23, 103, 88, 80, 66, 82, 88, 68, 93, 23, 94, 71, 25, 17, 85, 89, 82, 66, 86, 94, 80, 22, 31, 20, 8, 22, 75, 25, 16, 123, 67, 95, 83, 94, 88, 23, 3, 23, 92, 94, 69, 64, 108, 7, 109, 21, 23, 19, 99, 83, 82, 82, 68, 85, 75, 16, 14, 17, 68, 81, 81, 83, 66, 92, 69, 24, 17, 17, 97, 68, 83, 66, 20, 118, 83, 84, 88, 64, 16, 12, 16, 76, 68, 81, 67, 105, 85, 80, 83, 94, 77, 27, 20, 22, 101, 81, 84, 27, 118, 92, 67, 87, 89, 27, 112, 82, 69, 68, 30, 13, 20, 22, 83, 89, 71, 66, 73, 30, 27, 20, 22, 101, 81, 84, 27, 118, 92, 67, 87, 89, 27, 121, 88, 82, 85, 30, 13, 20, 22, 85, 91, 69, 69, 23, 21, 23, 19, 98, 83, 87, 26, 112, 85, 77, 84, 92, 28, 101, 93, 67, 83, 23, 3, 23, 19, 66, 87, 89, 82, 27, 95, 75, 94, 83, 88, 88, 19, 27, 22, 23, 97, 26, 102, 84, 71, 65, 82, 69, 68, 92, 83, 25, 102, 95, 64, 95, 17, 10, 25, 16, 108, 124, 122, 124, 67, 66, 64, 107, 82, 69, 68, 83, 71, 67, 17, 16, 68, 23, 14, 17, 77, 73, 12, 22, 70, 88, 69, 20, 68, 69, 81, 69, 22, 13, 25, 68, 64, 67, 24, 89, 86, 66, 83, 81, 31, 27, 13, 91, 81, 67, 87, 16, 87, 86, 89, 84, 11, 22, 65, 95, 85, 78, 71, 91, 67, 66, 22, 25, 28, 12, 84, 82, 64, 80, 22, 90, 86, 91, 85, 4, 21, 111, 111, 20, 105, 29, 20, 30, 19, 23, 87, 94, 88, 64, 82, 88, 68, 4, 21, 28, 106, 104, 22, 106, 28, 25, 27, 24, 29, 10, 22, 93, 81, 22, 24, 76, 68, 81, 67, 31, 79, 23, 64, 81, 75, 23, 71, 17, 11, 20, 66, 69, 85, 75, 108, 5, 108, 24, 71, 91, 95, 83, 92, 31, 7, 29, 22, 25, 2, 31, 11, 25, 65, 85, 67, 22, 88, 23, 11, 16, 74, 25, 88, 84, 88, 83, 67, 94, 11, 25, 65, 85, 67, 22, 76, 23, 11, 16, 9, 12, 20, 87, 89, 70, 31, 64, 81, 75, 23, 93, 17, 11, 20, 7, 13, 16, 80, 23, 8, 17, 90, 15, 23, 95, 27, 18, 30, 20, 73, 22, 9, 23, 30, 72, 25, 28, 20, 66, 24, 87, 95, 87, 66, 122, 88, 80, 84, 119, 64, 31, 95, 25, 16, 23, 17, 17, 90, 15, 23, 64, 81, 75, 23, 85, 17, 11, 20, 89, 83, 71, 25, 118, 70, 67, 87, 77, 31, 90, 25, 2, 23, 82, 94, 68, 28, 65, 87, 66, 25, 94, 20, 12, 22, 4, 12, 22, 89, 25, 11, 20, 93, 13, 20, 94, 29, 27, 16, 23, 76, 17, 11, 20, 31, 7, 1, 9, 4, 1, 0, 3, 6, 3, 3, 16, 19, 23, 76, 17, 29, 20, 6, 4, 3, 13, 2, 29, 17, 19, 20, 91, 26, 16, 88, 108, 93, 108, 22, 9, 23, 78, 11, 25, 65, 85, 67, 22, 71, 86, 22, 13, 25, 68, 26, 66, 70, 88, 94, 66, 24, 30, 16, 29, 10, 22, 82, 88, 68, 24, 79, 86, 70, 17, 95, 20, 10, 22, 92, 25, 26, 20, 0, 13, 20, 94, 22, 14, 4, 23, 4, 10, 22, 93, 26, 27, 25, 25, 76, 20, 71, 87, 70, 23, 92, 16, 4, 23, 85, 106, 95, 105, 27, 22, 68, 25, 10, 20, 106, 69, 85, 108, 92, 109, 21, 23, 71, 80, 109, 93, 106, 107, 11, 25, 68, 85, 106, 95, 105, 23, 11, 16, 77, 108, 4, 108, 26, 20, 68, 87, 107, 83, 106, 20, 12, 22, 64, 108, 7, 109, 2, 23, 73, 17, 64, 85, 69, 22, 81, 90, 84, 81, 65, 66, 71, 104, 85, 95, 87, 67, 70, 94, 90, 71, 23, 11, 16, 74, 86, 26, 91, 89, 93, 89, 30, 23, 30, 30, 26, 66, 90, 93, 84, 83, 24, 11, 27, 20, 28, 4, 29, 23, 29, 16, 30, 75, 19, 17, 29, 20, 86, 85, 83, 92, 71, 64, 66, 105, 93, 83, 13, 16, 92, 79, 64, 67, 87, 87, 67, 24, 64, 75, 88, 76, 3, 22, 31, 10, 22, 23, 73, 86, 70, 80, 91, 27, 100, 68, 81, 82, 86, 25, 83, 89, 64, 26, 117, 95, 87, 67, 70, 94, 90, 71, 10, 17, 16, 18, 23, 81, 95, 85, 91, 83, 83, 101, 107, 126, 119, 94, 91, 68, 88, 88, 85, 87, 67, 28, 80, 85, 87, 82, 70, 68, 74, 104, 87, 94, 88, 64, 69, 89, 92, 74, 30, 20, 26, 22, 19, 24, 17, 11, 25, 94, 82, 17, 30, 120, 86, 91, 64, 88, 25, 100, 93, 87, 64, 81, 89, 66, 84, 25, 93, 66, 30, 19, 86, 88, 84, 75, 88, 93, 85, 17, 29, 30, 77, 16, 92, 79, 64, 67, 87, 87, 67, 24, 88, 92, 86, 80, 84, 68, 71, 108, 17, 99, 75, 86, 95, 80, 27, 86, 88, 66, 29, 122, 88, 90, 69, 68, 91, 91, 69, 23, 100, 23, 9, 17, 87, 87, 84, 83, 64, 77, 68, 107, 82, 89, 90, 67, 68, 95, 85, 68, 15, 17, 75, 20, 74, 22, 85, 65, 67, 70, 80, 85, 64, 25, 69, 68, 75, 82, 85, 92, 105, 68, 69, 89, 72, 11, 23, 9, 17, 30, 19, 71, 87, 66, 88, 90, 27, 126, 68, 93, 80, 95, 94, 4, 16, 20, 26, 22, 81, 89, 85, 95, 93, 82, 97, 99, 127, 119, 88, 91, 64, 86, 89, 81, 95, 66, 28, 95, 89, 67, 77, 108, 5, 108, 31, 20, 28, 22, 23, 22, 16, 29, 17, 29, 20, 31, 17, 64, 88, 69, 85, 92, 25, 102, 82, 80, 85, 75, 82, 70, 12, 17, 20, 28, 22, 85, 87, 84, 91, 85, 83, 97, 101, 127, 115, 86, 90, 68, 94, 88, 81, 89, 66, 24, 81, 88, 71, 69, 109, 5, 106, 22, 27, 25, 16, 27, 22, 31, 20, 28, 22, 23, 22, 16, 29, 17, 29, 20, 31, 17, 64, 88, 69, 85, 92, 25, 97, 68, 83, 66, 20, 118, 83, 84, 88, 64, 10, 17, 16, 18, 23, 81, 95, 85, 91, 83, 83, 101, 107, 126, 119, 94, 91, 68, 88, 88, 85, 87, 67, 28, 68, 69, 81, 69, 105, 81, 94, 82, 90, 69, 31, 20, 28, 22, 23, 22, 16, 29, 10, 22, 81, 79, 66, 66, 88, 84, 64, 31, 69, 64, 69, 83, 81, 84, 104, 92, 84, 87, 80, 82, 68, 67, 25, 10, 20, 125, 87, 89, 71, 87, 30, 105, 91, 85, 69, 80, 91, 69, 91, 30, 80, 68, 28, 22, 87, 90, 83, 68, 95, 80, 83, 19, 24, 22, 11, 23, 77, 16, 30, 120, 70, 88, 81, 93, 89, 17, 10, 25, 95, 91, 66, 66, 111, 6, 107, 28, 25, 16, 102, 84, 80, 81, 69, 83, 66, 30, 13, 20, 89, 89, 71, 67, 109, 1, 100, 23, 31, 17, 17, 27, 16, 26, 16, 30, 98, 71, 84, 68, 25, 118, 81, 85, 87, 67, 19, 11, 22, 65, 68, 83, 66, 102, 86, 83, 84, 88, 64, 23, 75, 16, 3, 23, 79, 76, 13, 20, 74, 22, 66, 92, 67, 65, 67, 88, 20, 82, 78, 68, 75, 86, 87, 69, 13, 20, 74, 31, 30, 90, 86, 88, 93, 30, 79, 74, 26]);
       var filter_items = {};
       var choice = {
         season: 0,
@@ -7938,7 +7975,7 @@
         var postdata = extract.postdata;
         network.clear();
         network.timeout(10000);
-        network["native"](component.proxyLink(extract.domain + 'api/movie/' + element.media.id, prox2, extract.prox2, 'enc2'), function (json) {
+        network["native"](component.proxyLink(extract.domain + 'api/movies/' + element.media.id, prox2, extract.prox2, 'enc2'), function (json) {
           if (json && json.hlsSource && json.hlsSource.length) {
             var file = '';
             var quality = false;
@@ -8509,7 +8546,7 @@
       var select_title = '';
       var prefer_http = Lampa.Storage.field('online_mod_prefer_http') === true;
       var prox = component.proxy('cdnvideohub');
-      var embed = atob('aHR0cHM6Ly9wbGFwaS5jZG52aWRlb2h1Yi5jb20vYXBpL3YxL3BsYXllci9zdj9wdWI9MTI=');
+      var embed = atob('aHR0cHM6Ly9wbGFwaS5jZG52aWRlb2h1Yi5jb20vYXBpL3YxL3BsYXllci9zdi8=');
       var filter_items = {};
       var choice = {
         season: 0,
@@ -8531,8 +8568,7 @@
           return;
         }
 
-        var url = Lampa.Utils.addUrlComponent(embed, 'id=' + kinopoisk_id);
-        url = Lampa.Utils.addUrlComponent(url, 'aggr=kp');
+        var url = Lampa.Utils.addUrlComponent(embed + atob('cGxheWxpc3Q/cHViPTEyJmFnZ3I9a3A='), 'id=' + kinopoisk_id);
         network.clear();
         network.timeout(10000);
         network["native"](component.proxyLink(url, prox), function (json) {
@@ -8592,17 +8628,17 @@
       function parse(json) {
         component.loading(false);
 
-        if (json && json.video && json.video.forEach) {
+        if (json && json.items && json.items.forEach) {
           var seasons = [];
-          var items = json.video;
+          var items = json.items;
           items.sort(function (a, b) {
             var cmp = (a.season || 0) - (b.season || 0);
             if (cmp) return cmp;
             cmp = (a.episode || 0) - (b.episode || 0);
             if (cmp) return cmp;
-            if ((a.voice_studio || a.voice_type || '') > (b.voice_studio || b.voice_type || '')) return 1;
-            if ((a.voice_studio || a.voice_type || '') < (b.voice_studio || b.voice_type || '')) return -1;
-            cmp = (a.unitedVideoId || 0) - (b.unitedVideoId || 0);
+            if ((a.voiceStudio || a.voiceType || '') > (b.voiceStudio || b.voiceType || '')) return 1;
+            if ((a.voiceStudio || a.voiceType || '') < (b.voiceStudio || b.voiceType || '')) return -1;
+            cmp = (a.vkId || 0) - (b.vkId || 0);
             return cmp;
           });
           items.forEach(function (data) {
@@ -8620,7 +8656,7 @@
                 seasons.push(s);
               }
 
-              var voice = data.voice_studio || data.voice_type || '';
+              var voice = data.voiceStudio || data.voiceType || '';
               if (s.voices.indexOf(voice) == -1) s.voices.push(voice);
             }
           });
@@ -8671,30 +8707,28 @@
         if (extract.seasons.length) {
           var season_id = extract.seasons[choice.season] && extract.seasons[choice.season].id;
           extract.items.forEach(function (data) {
-            var voice = data.voice_studio || data.voice_type || '';
+            var voice = data.voiceStudio || data.voiceType || '';
 
             if (data.season == season_id && voice == filter_items.voice[choice.voice]) {
-              var items = extractItems(data.sources);
               filtred.push({
                 title: component.formatEpisodeTitle(season_id, data.episode),
-                quality: items[0] && items[0].quality ? items[0].quality + 'p' : '360p ~ 1080p',
-                info: ' / ' + Lampa.Utils.shortText(voice, 50) + (data.unitedVideoId ? ' / id: ' + data.unitedVideoId : ''),
-                data_id: data.unitedVideoId,
+                quality: '360p ~ 1080p',
+                info: ' / ' + Lampa.Utils.shortText(voice, 50) + (data.vkId ? ' / id: ' + data.vkId : ''),
+                data_id: data.vkId,
                 season: '' + season_id,
                 episode: data.episode,
-                media: items
+                media: data
               });
             }
           });
         } else {
           extract.items.forEach(function (data) {
-            var items = extractItems(data.sources);
             filtred.push({
-              title: data.voice_studio || data.voice_type || extract.title_name,
-              quality: items[0] && items[0].quality ? items[0].quality + 'p' : '360p ~ 1080p',
-              info: data.unitedVideoId ? ' / id: ' + data.unitedVideoId : '',
-              data_id: data.unitedVideoId,
-              media: items
+              title: data.voiceStudio || data.voiceType || extract.title_name,
+              quality: '360p ~ 1080p',
+              info: data.vkId ? ' / id: ' + data.vkId : '',
+              data_id: data.vkId,
+              media: data
             });
           });
         }
@@ -8799,29 +8833,40 @@
         return items;
       }
       /**
-       * Найти поток
-       * @param {Object} element
-       * @returns string
+       * Получить поток
+       * @param {*} element
        */
 
 
-      function getFile(element) {
-        var file = '';
-        var quality = false;
-        var items = element.media;
+      function getStream(element, call, error) {
+        if (element.stream) return call(element);
+        if (!element.data_id) return error();
+        var url = embed + 'video/' + element.data_id;
+        network.clear();
+        network.timeout(10000);
+        network["native"](component.proxyLink(url, prox), function (json) {
+          if (json && json.sources) {
+            var file = '',
+                quality = false;
+            var items = extractItems(json.sources);
 
-        if (items && items.length) {
-          file = items[0].file;
-          quality = {};
-          items.forEach(function (item) {
-            quality[item.label] = item.file;
-          });
-        }
+            if (items && items.length) {
+              file = items[0].file;
+              quality = {};
+              items.forEach(function (item) {
+                quality[item.label] = item.file;
+              });
+            }
 
-        return {
-          file: file,
-          quality: quality
-        };
+            if (file) {
+              element.stream = file;
+              element.qualitys = quality;
+              call(element);
+            } else error();
+          } else error();
+        }, function (a, c) {
+          error();
+        });
       }
       /**
        * Показать файлы
@@ -8845,42 +8890,56 @@
 
           if (viewed.indexOf(hash_file) !== -1) item.append('<div class="torrent-item__viewed">' + Lampa.Template.get('icon_star', {}, true) + '</div>');
           item.on('hover:enter', function () {
+            if (element.loading) return;
             if (object.movie.id) Lampa.Favorite.add('history', object.movie, 100);
-            var extra = getFile(element);
-
-            if (extra.file) {
-              var playlist = [];
+            element.loading = true;
+            getStream(element, function (element) {
+              element.loading = false;
               var first = {
-                url: component.getDefaultQuality(extra.quality, extra.file),
-                quality: component.renameQualityMap(extra.quality),
+                url: component.getDefaultQuality(element.qualitys, element.stream),
+                quality: component.renameQualityMap(element.qualitys),
                 timeline: element.timeline,
                 title: element.season ? element.title : select_title + (element.title == select_title ? '' : ' / ' + element.title)
               };
-
-              if (element.season) {
-                items.forEach(function (elem) {
-                  var ex = getFile(elem);
-                  playlist.push({
-                    url: component.getDefaultQuality(ex.quality, ex.file),
-                    quality: component.renameQualityMap(ex.quality),
-                    timeline: elem.timeline,
-                    title: elem.title
-                  });
-                });
-              } else {
-                playlist.push(first);
-              }
-
-              if (playlist.length > 1) first.playlist = playlist;
               Lampa.Player.play(first);
-              Lampa.Player.playlist(playlist);
+
+              if (element.season && Lampa.Platform.version) {
+                var playlist = [];
+                items.forEach(function (elem) {
+                  if (elem == element) {
+                    playlist.push(first);
+                  } else {
+                    var cell = {
+                      url: function url(call) {
+                        getStream(elem, function (elem) {
+                          cell.url = component.getDefaultQuality(elem.qualitys, elem.stream);
+                          cell.quality = component.renameQualityMap(elem.qualitys);
+                          call();
+                        }, function () {
+                          cell.url = '';
+                          call();
+                        });
+                      },
+                      timeline: elem.timeline,
+                      title: elem.title
+                    };
+                    playlist.push(cell);
+                  }
+                });
+                Lampa.Player.playlist(playlist);
+              } else {
+                Lampa.Player.playlist([first]);
+              }
 
               if (viewed.indexOf(hash_file) == -1) {
                 viewed.push(hash_file);
                 item.append('<div class="torrent-item__viewed">' + Lampa.Template.get('icon_star', {}, true) + '</div>');
                 Lampa.Storage.set('online_view', viewed);
               }
-            } else Lampa.Noty.show(Lampa.Lang.translate('online_mod_nolink'));
+            }, function () {
+              element.loading = false;
+              Lampa.Noty.show(Lampa.Lang.translate('online_mod_nolink'));
+            });
           });
           component.append(item);
           component.contextmenu({
@@ -8889,7 +8948,14 @@
             viewed: viewed,
             hash_file: hash_file,
             file: function file(call) {
-              call(getFile(element));
+              getStream(element, function (element) {
+                call({
+                  file: element.stream,
+                  quality: element.qualitys
+                });
+              }, function () {
+                Lampa.Noty.show(Lampa.Lang.translate('online_mod_nolink'));
+              });
             }
           });
         });
@@ -11699,21 +11765,7 @@
       };
 
       this.checkMyIp = function (onComplite) {
-        var ip = Utils.getMyIp();
-
-        if (ip) {
-          onComplite();
-          return;
-        }
-
-        network.clear();
-        network.timeout(10000);
-        network.silent('https://api.ipify.org/?format=json', function (json) {
-          if (json.ip) Utils.setMyIp(json.ip);
-          onComplite();
-        }, function (a, c) {
-          onComplite();
-        });
+        Utils.checkMyIp(network, onComplite);
       };
 
       var last;
@@ -11727,7 +11779,7 @@
       var disable_dbg = !Utils.isDebug();
       var isAndroid = Lampa.Platform.is('android');
       isAndroid && Utils.checkAndroidVersion(339);
-      var collapsBlocked = (!startsWith(window.location.protocol, 'http') || window.location.hostname === 'lampa.mx') && disable_dbg;
+      var collapsBlocked = (!startsWith(window.location.protocol, 'http') || window.location.hostname.indexOf('lampa') !== -1) && disable_dbg;
       var all_sources = [{
         name: 'lumex',
         title: 'Lumex',
@@ -13121,13 +13173,14 @@
       };
     }
 
-    var mod_version = '17.07.2025';
+    var mod_version = '31.08.2025';
     console.log('App', 'start address:', window.location.href);
     var isMSX = !!(window.TVXHost || window.TVXManager);
     var isTizen = navigator.userAgent.toLowerCase().indexOf('tizen') !== -1;
     var isIFrame = window.parent !== window;
     var isLocal = !startsWith(window.location.protocol, 'http');
     var androidHeaders = Lampa.Platform.is('android') && Utils.checkAndroidVersion(339);
+    var filmixHost = Utils.filmixHost();
     console.log('App', 'is MSX:', isMSX);
     console.log('App', 'is Tizen:', isTizen);
     console.log('App', 'is iframe:', isIFrame);
@@ -13661,11 +13714,11 @@
         zh: '将设备添加到 Filmix'
       },
       online_mod_filmix_modal_text: {
-        ru: 'Введите его на странице https://filmix.quest/consoles в вашем авторизованном аккаунте!',
-        uk: 'Введіть його на сторінці https://filmix.quest/consoles у вашому авторизованому обліковому записі!',
-        be: 'Увядзіце яго на старонцы https://filmix.quest/consoles у вашым аўтарызаваным акаўнце!',
-        en: 'Enter it at https://filmix.quest/consoles in your authorized account!',
-        zh: '在您的授权帐户中的 https://filmix.quest/consoles 中输入！'
+        ru: 'Введите его на странице ' + filmixHost + '/consoles в вашем авторизованном аккаунте!',
+        uk: 'Введіть його на сторінці ' + filmixHost + '/consoles у вашому авторизованому обліковому записі!',
+        be: 'Увядзіце яго на старонцы ' + filmixHost + '/consoles у вашым аўтарызаваным акаўнце!',
+        en: 'Enter it at ' + filmixHost + '/consoles in your authorized account!',
+        zh: '在您的授权帐户中的 ' + filmixHost + '/consoles 中输入！'
       },
       online_mod_filmix_modal_wait: {
         ru: 'Ожидаем код',
@@ -13733,21 +13786,12 @@
     }
 
     function checkMyIp(onComplite) {
-      var ip = Utils.getMyIp();
-
-      if (ip || Lampa.Storage.field('online_mod_proxy_find_ip') !== true) {
+      if (Lampa.Storage.field('online_mod_proxy_find_ip') !== true) {
         onComplite();
         return;
       }
 
-      network.clear();
-      network.timeout(10000);
-      network.silent('https://api.ipify.org/?format=json', function (json) {
-        if (json.ip) Utils.setMyIp(json.ip);
-        onComplite();
-      }, function (a, c) {
-        onComplite();
-      });
+      Utils.checkMyIp(network, onComplite);
     }
 
     function checkCurrentFanserialsHost(onComplite) {
