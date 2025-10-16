@@ -1,4 +1,6 @@
-//31.08.2025 - Fix
+//https://nb557.github.io/plugins/online_mod.js
+
+//11.10.2025 - Fix
 
 (function () {
     'use strict';
@@ -91,6 +93,10 @@
       return 'https://filmix.my';
     }
 
+    function filmixAppHost() {
+      return 'http://filmixapp.vip';
+    }
+
     function filmixToken(dev_id, token) {
       return '?user_dev_id=' + dev_id + '&user_dev_name=Xiaomi&user_dev_token=' + token + '&user_dev_vendor=Xiaomi&user_dev_os=14&user_dev_apk=2.2.0&app_lang=ru-rRU';
     }
@@ -161,7 +167,7 @@
       var user_proxy1 = (proxy_other_url || proxy1) + param_ip;
       var user_proxy2 = (proxy_other_url || proxy2) + param_ip;
       var user_proxy3 = (proxy_other_url || proxy3) + param_ip;
-      if (name === 'filmix_site') return user_proxy2;
+      if (name === 'filmix_site') return proxy_secret_ip || user_proxy1;
       if (name === 'filmix_abuse') return window.location.protocol === 'https:' ? 'https://cors.apn.monster/' : 'http://cors.cfhttp.top/';
       if (name === 'zetflix') return proxy_apn;
       if (name === 'allohacdn') return proxy_other ? proxy_secret : proxy_apn;
@@ -172,12 +178,12 @@
 
       if (Lampa.Storage.field('online_mod_proxy_' + name) === true) {
         if (name === 'iframe') return user_proxy2;
-        if (name === 'lumex') return proxy_other ? proxy_secret : proxy_apn;
+        if (name === 'lumex') return proxy_secret;
         if (name === 'rezka') return user_proxy2;
         if (name === 'rezka2') return user_proxy2;
         if (name === 'kinobase') return proxy_apn;
         if (name === 'collaps') return proxy_other ? proxy_secret : proxy_apn;
-        if (name === 'cdnmovies') return user_proxy2;
+        if (name === 'cdnmovies') return proxy_other ? proxy_secret : proxy_apn;
         if (name === 'filmix') return proxy_secret_ip || user_proxy1;
         if (name === 'videodb') return user_proxy2;
         if (name === 'fancdn') return user_proxy3;
@@ -376,6 +382,7 @@
       fanserialsHost: fanserialsHost,
       fancdnHost: fancdnHost,
       filmixHost: filmixHost$1,
+      filmixAppHost: filmixAppHost,
       filmixToken: filmixToken,
       filmixUserAgent: filmixUserAgent,
       baseUserAgent: baseUserAgent,
@@ -576,6 +583,7 @@
       var prox_enc2 = prox_enc;
       var embed = atob('aHR0cHM6Ly9hcGkubHVtZXguc3BhY2Uv');
       var suffix = atob('Y2xpZW50SWQ9Q1dmS1hMYzFhaklkJmRvbWFpbj1tb3ZpZWxhYi5vbmUmdXJsPW1vdmllbGFiLm9uZQ==');
+      var no_prox = atob('LmVudG91YWVkb24uY29tLw==');
       var filter_items = {};
       var choice = {
         season: 0,
@@ -903,10 +911,12 @@
               if (alt_height > quality && alt_height <= 4320) quality = alt_height;
             }
 
+            link = component.fixLink(link, url);
+            var link_prox = link.indexOf(no_prox) !== -1 ? '' : prox;
             return {
               label: quality ? quality + 'p' : '360p ~ 1080p',
               quality: quality,
-              file: component.proxyLink(component.fixLink(link, url), prox, prox_enc)
+              file: component.proxyLink(link, link_prox, prox_enc)
             };
           });
           items.sort(function (a, b) {
@@ -955,15 +965,16 @@
       function getStreamM3U(element, call, error, file) {
         file = file.replace(/\.mp4:hls:manifest/, '');
         var hls_file = file.replace(/\/\d\d\d+([^\/]*\.m3u8)$/, '/hls$1');
+        var link_prox = file.indexOf(no_prox) !== -1 ? '' : prox;
         network.clear();
         network.timeout(5000);
-        network["native"](component.proxyLink(hls_file, prox, prox_enc), function (str) {
+        network["native"](component.proxyLink(hls_file, link_prox, prox_enc), function (str) {
           parseStream(element, call, error, extractItems, str, hls_file);
         }, function (a, c) {
           if (file != hls_file) {
             network.clear();
             network.timeout(5000);
-            network["native"](component.proxyLink(file, prox, prox_enc), function (str) {
+            network["native"](component.proxyLink(file, link_prox, prox_enc), function (str) {
               parseStream(element, call, error, extractItems, str, file);
             }, function (a, c) {
               error();
@@ -986,9 +997,10 @@
             return link;
           })[0] || '';
           link = component.fixLinkProtocol(link, prefer_http);
+          var link_prox = link.indexOf(no_prox) !== -1 ? '' : prox;
           return {
             label: item.label,
-            url: component.proxyLink(link, prox, prox_enc)
+            url: component.proxyLink(link, link_prox, prox_enc)
           };
         }).filter(function (s) {
           return s.url;
@@ -1018,7 +1030,8 @@
               return;
             }
 
-            element.stream = component.proxyLink(url, prox, prox_enc);
+            var link_prox = url.indexOf(no_prox) !== -1 ? '' : prox;
+            element.stream = component.proxyLink(url, link_prox, prox_enc);
             element.qualitys = false;
             call(element);
           } else error();
@@ -2283,7 +2296,7 @@
         try {
           var items = component.parsePlaylist(str).map(function (item) {
             var int_quality = NaN;
-            var quality = item.label.match(/(\d\d\d+)p/);
+            var quality = item.label.match(/(\d\d\d+)/);
 
             if (quality) {
               int_quality = parseInt(quality[1]);
@@ -2816,7 +2829,7 @@
             var voices = {};
             component.parsePlaylist(file).forEach(function (item) {
               var prev = voices[item.voice || ''];
-              var quality_str = item.label.match(/(\d\d\d+)p/);
+              var quality_str = item.label.match(/(\d\d\d+)/);
               var quality = quality_str ? parseInt(quality_str[1]) : NaN;
 
               if (!prev || quality > prev.quality) {
@@ -3033,7 +3046,7 @@
           }
 
           var items = list.map(function (item) {
-            var quality = item.label.match(/(\d\d\d+)p/);
+            var quality = item.label.match(/(\d\d\d+)/);
             var file = item.links[0] || '';
             return {
               label: item.label,
@@ -3167,7 +3180,7 @@
 
       var lampa_player = Lampa.Storage.field('online_mod_collaps_lampa_player') === true;
       var prox = component.proxy('collaps');
-      var base = 'api.atomics.ws';
+      var base = 'api.namy.ws';
       var host = 'https://' + base;
       var ref = host + '/';
       var user_agent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
@@ -3543,10 +3556,9 @@
         prox_enc += 'param/Origin=' + encodeURIComponent(host) + '/';
         prox_enc += 'param/Referer=' + encodeURIComponent(ref) + '/';
         prox_enc += 'param/User-Agent=' + encodeURIComponent(user_agent) + '/';
-        prox_enc += 'enc/aXAyNjA2OjQ3MDA6MzAzMTo6NjgxNTo0NmQ5Lw%3D%3D/';
       }
 
-      var prox_stream = '';
+      var prox_enc2 = prox_enc;
       var embed = 'https://cdnmovies-stream.online/';
       var filter_items = {};
       var choice = {
@@ -3721,7 +3733,7 @@
 
         try {
           var items = component.parsePlaylist(str).map(function (item) {
-            var quality = item.label.match(/(\d\d\d+)p/);
+            var quality = item.label.match(/(\d\d\d+)/);
             var link = item.links[0] || '';
             link = link.replace('/sundb.coldcdn.xyz/', '/sundb.nl/');
             link = component.fixLinkProtocol(link, prefer_http, true);
@@ -3729,7 +3741,7 @@
             return {
               label: item.label,
               quality: quality ? parseInt(quality[1]) : NaN,
-              file: component.proxyLink(link, prox_stream, '')
+              file: component.proxyLink(link, prox, prox_enc2)
             };
           });
           items.sort(function (a, b) {
@@ -3789,7 +3801,7 @@
         if (prefer_mp4) url = url.replace(/(\.mp4):hls:manifest\.m3u8$/i, '$1');
 
         if (url) {
-          element.stream = component.proxyLink(url, prox_stream, '');
+          element.stream = component.proxyLink(url, prox, prox_enc2);
           element.qualitys = false;
           call(element);
         } else error();
@@ -3856,7 +3868,7 @@
           link = component.fixLinkProtocol(link, prefer_http, true);
           return {
             label: item.label,
-            url: component.processSubs(component.proxyLink(link, prox_stream, ''))
+            url: component.processSubs(component.proxyLink(link, prox, prox_enc2))
           };
         });
         return subtitles.length ? subtitles : false;
@@ -4050,6 +4062,11 @@
       var prox = component.proxy('filmix');
       var prox2 = component.proxy('filmix_site');
       var prox3 = component.proxy('filmix_abuse');
+      var host = Utils.filmixHost();
+      var ref = host + '/';
+      var user_agent = Utils.baseUserAgent();
+      var site = ref;
+      var embed = Utils.filmixAppHost() + '/api/v2/';
       var headers = Lampa.Platform.is('android') ? {
         'User-Agent': Utils.filmixUserAgent()
       } : {};
@@ -4059,8 +4076,22 @@
         prox_enc += 'param/User-Agent=' + encodeURIComponent(Utils.filmixUserAgent()) + '/';
       }
 
-      var embed = 'http://filmixapp.cyou/api/v2/';
-      var site = Utils.filmixHost() + '/';
+      var headers2 = Lampa.Platform.is('android') ? {
+        'Origin': host,
+        'Referer': ref,
+        'User-Agent': user_agent,
+        'X-Requested-With': 'XMLHttpRequest'
+      } : {
+        'X-Requested-With': 'XMLHttpRequest'
+      };
+      var prox2_enc = '';
+
+      if (prox2) {
+        prox2_enc += 'param/Origin=' + encodeURIComponent(host) + '/';
+        prox2_enc += 'param/Referer=' + encodeURIComponent(ref) + '/';
+        prox2_enc += 'param/User-Agent=' + encodeURIComponent(user_agent) + '/';
+      }
+
       var select_title = '';
       var prefer_http = Lampa.Storage.field('online_mod_prefer_http') === true;
       var filter_items = {};
@@ -4200,14 +4231,12 @@
           var url = site + 'api/v2/suggestions?search_word=' + encodeURIComponent(clean_title);
           network.clear();
           network.timeout(10000);
-          network["native"](component.proxyLink(url, prox2), function (json) {
+          network["native"](component.proxyLink(url, prox2, prox2_enc), function (json) {
             display(json && json.posts || []);
           }, function (a, c) {
             component.empty(network.errorDecode(a, c));
           }, false, {
-            headers: {
-              'X-Requested-With': 'XMLHttpRequest'
-            }
+            headers: headers2
           });
         };
 
@@ -4809,7 +4838,7 @@
 
         try {
           var items = component.parsePlaylist(str).map(function (item) {
-            var quality = item.label.match(/(\d\d\d+)p/);
+            var quality = item.label.match(/(\d\d\d+)/);
             var link = item.links[0] || '';
             link = component.fixLinkProtocol(link, prefer_http, true);
             return {
@@ -5377,7 +5406,7 @@
 
         try {
           var items = component.parsePlaylist(str).map(function (item) {
-            var quality = item.label.match(/(\d\d\d+)p/);
+            var quality = item.label.match(/(\d\d\d+)/);
             var link = item.links[0] || '';
             link = component.fixLinkProtocol(link, prefer_http, true);
             return {
@@ -5898,7 +5927,7 @@
 
         try {
           var items = component.parsePlaylist(str).map(function (item) {
-            var quality = item.label.match(/(\d\d\d+)p/);
+            var quality = item.label.match(/(\d\d\d+)/);
             var link = item.links[0] || '';
             link = component.fixLinkProtocol(link, prefer_http, true);
             return {
@@ -6709,8 +6738,8 @@
       var select_title = '';
       var prox = component.proxy('videoseed');
       var user_agent = Utils.baseUserAgent();
-      var embed = atob('aHR0cHM6Ly90di0yLWtpbm9zZXJpYWwubmV0L2FwaV9wbGF5ZXIucGhw');
-      var suffix = Utils.decodeSecret([69, 91, 92, 84, 89, 5, 1, 85, 83, 83, 6, 5, 14, 4, 84, 92, 4, 85, 84, 9, 87, 13, 3, 85, 2, 9, 83, 87, 80, 83, 80, 81, 83, 2, 14, 12, 7, 2], atob('U2Vla1Rva2Vu'));
+      var embed = atob('aHR0cHM6Ly92aWRlb3NlZWQudHYvYXBpdjIucGhw');
+      var suffix = Utils.decodeSecret([67, 91, 90, 83, 90, 10, 4, 8, 90, 84, 0, 0, 80, 7, 7, 5, 0, 92, 2, 7, 87, 83, 81, 2, 3, 0, 10, 15, 12, 6, 7, 0, 2, 0, 6, 95, 3, 87]);
       var headers = Lampa.Platform.is('android') ? {
         'User-Agent': user_agent
       } : {};
@@ -6747,13 +6776,14 @@
 
         var error = component.empty.bind(component);
         var api = embed;
-        api = Lampa.Utils.addUrlComponent(api, 'kp_id=' + encodeURIComponent(kinopoisk_id));
+        api = Lampa.Utils.addUrlComponent(api, 'item=' + (object.movie.number_of_seasons ? 'serial' : 'movie'));
+        api = Lampa.Utils.addUrlComponent(api, 'kp=' + encodeURIComponent(kinopoisk_id));
         api = Lampa.Utils.addUrlComponent(api, suffix);
         network.clear();
         network.timeout(10000);
-        network["native"](component.proxyLink(api, prox, prox_enc, 'enc2'), function (str) {
-          if (str && str !== 'NONE' && startsWith(str, 'http')) {
-            var url = str;
+        network["native"](component.proxyLink(api, prox, prox_enc, 'enc2'), function (json) {
+          if (json && json.data && json.data[0] && json.data[0].iframe) {
+            var url = json.data[0].iframe;
             var pos = url.indexOf('?');
 
             if (pos !== -1) {
@@ -6774,7 +6804,6 @@
         }, function (a, c) {
           error(network.errorDecode(a, c));
         }, false, {
-          dataType: 'text',
           headers: headers
         });
       };
@@ -6843,6 +6872,7 @@
         }
 
         if (json && json.file && typeof json.file === 'string') {
+          json.file = decode(json.file);
           json = {
             file: [json]
           };
@@ -6995,7 +7025,7 @@
           }
 
           var items = list.map(function (item) {
-            var quality = item.label.match(/(\d\d\d+)p/);
+            var quality = item.label.match(/(\d\d\d+)/);
             var file = item.links[0] || '';
             return {
               label: item.label,
@@ -7479,7 +7509,7 @@
               label = label.substring('MP4 '.length).trim();
             }
 
-            var quality = label.match(/(\d\d\d+)p/);
+            var quality = label.match(/(\d\d\d+)/);
             var file = item.links[0] || '';
             return {
               label: label,
@@ -8240,15 +8270,25 @@
                 }
               }
 
-              if (cards.length > 1 && search_year) {
+              {
                 var _tmp2 = cards.filter(function (c) {
+                  return !endsWith(c.title, ' - обзор');
+                });
+
+                if (_tmp2.length) {
+                  cards = _tmp2;
+                }
+              }
+
+              if (cards.length > 1 && search_year) {
+                var _tmp3 = cards.filter(function (c) {
                   return c.year == search_year;
                 });
 
-                if (!_tmp2.length) _tmp2 = cards.filter(function (c) {
+                if (!_tmp3.length) _tmp3 = cards.filter(function (c) {
                   return c.year && c.year > search_year - 2 && c.year < search_year + 2;
                 });
-                if (_tmp2.length) cards = _tmp2;
+                if (_tmp3.length) cards = _tmp3;
               }
             }
 
@@ -10299,7 +10339,7 @@
       var prefer_mp4 = false;
       var prox = component.proxy('kodik');
       var embed = 'https://kodikapi.com/search';
-      var token = atob('NDVjNTM1NzhmMTFlY2ZiNzRlMzEyNjdiNjM0Y2M2YTg=');
+      var token = Utils.decodeSecret([5, 1, 86, 86, 11, 6, 86, 9, 4, 82, 2, 3, 5, 3, 10, 82, 1, 9, 85, 6, 81, 5, 3, 2, 8, 3, 2, 2, 7, 83, 0, 7], atob('a29kaWs='));
       var last_player = '';
       var last_info = '';
       var filter_items = {};
@@ -11681,7 +11721,7 @@
     var proxyInitialized = {};
     var proxyWindow = {};
     var proxyCalls = {};
-    var default_balanser = 'lumex2';
+    var default_balanser = 'vibix';
 
     function component(object) {
       var network = new Lampa.Reguest();
@@ -11810,7 +11850,7 @@
         search: true,
         kp: false,
         imdb: false,
-        disabled: disable_dbg
+        disabled: true
       }, {
         name: 'collaps',
         title: 'Collaps',
@@ -11880,7 +11920,8 @@
         source: new videoseed(this, object),
         search: false,
         kp: true,
-        imdb: true
+        imdb: true,
+        disabled: disable_dbg
       }, {
         name: 'vibix',
         title: 'Vibix',
@@ -11947,7 +11988,7 @@
         search: false,
         kp: true,
         imdb: true,
-        disabled: disable_dbg
+        disabled: true
       }, {
         name: 'kinopub',
         title: 'KinoPub',
@@ -12456,24 +12497,28 @@
 
         try {
           if (startsWith(str, '[')) {
-            str.substring(1).split(',[').forEach(function (item) {
-              if (endsWith(item, ',')) item = item.substring(0, item.length - 1);
+            str.substring(1).split(/, *\[/).forEach(function (item) {
+              item = item.trim();
+              if (endsWith(item, ',')) item = item.substring(0, item.length - 1).trim();
               var label_end = item.indexOf(']');
 
               if (label_end >= 0) {
-                var label = item.substring(0, label_end);
+                var label = item.substring(0, label_end).trim();
 
                 if (item.charAt(label_end + 1) === '{') {
-                  item.substring(label_end + 2).split(';{').forEach(function (voice_item) {
-                    if (endsWith(voice_item, ';')) voice_item = voice_item.substring(0, voice_item.length - 1);
+                  item.substring(label_end + 2).split(/; *\{/).forEach(function (voice_item) {
+                    voice_item = voice_item.trim();
+                    if (endsWith(voice_item, ';')) voice_item = voice_item.substring(0, voice_item.length - 1).trim();
                     var voice_end = voice_item.indexOf('}');
 
                     if (voice_end >= 0) {
-                      var voice = voice_item.substring(0, voice_end);
+                      var voice = voice_item.substring(0, voice_end).trim();
                       pl.push({
                         label: label,
                         voice: voice,
-                        links: voice_item.substring(voice_end + 1).split(' or ').filter(function (link) {
+                        links: voice_item.substring(voice_end + 1).split(' or ').map(function (link) {
+                          return link.trim();
+                        }).filter(function (link) {
                           return link;
                         })
                       });
@@ -12482,7 +12527,9 @@
                 } else {
                   pl.push({
                     label: label,
-                    links: item.substring(label_end + 1).split(' or ').filter(function (link) {
+                    links: item.substring(label_end + 1).split(' or ').map(function (link) {
+                      return link.trim();
+                    }).filter(function (link) {
                       return link;
                     })
                   });
@@ -12797,7 +12844,7 @@
             if (preferably === '1080p') preferably = '1080p Ultra';
           }
 
-          var items = ['2160p', '4K', '1440p', '2K', '1080p Ultra', '1080p', '720p', '480p', '360p', '240p'];
+          var items = ['2160p', '2160', '4K', '1440p', '1440', '2K', '1080p Ultra', '1080p', '1080', '720p', '720', '480p', '480', '360p', '360', '240p', '240'];
           var idx = items.indexOf(preferably);
 
           if (idx !== -1) {
@@ -13173,7 +13220,7 @@
       };
     }
 
-    var mod_version = '31.08.2025';
+    var mod_version = '11.10.2025';
     console.log('App', 'start address:', window.location.href);
     var isMSX = !!(window.TVXHost || window.TVXManager);
     var isTizen = navigator.userAgent.toLowerCase().indexOf('tizen') !== -1;
@@ -13910,17 +13957,25 @@
       });
     }
 
-    if (Lampa.VPN && Lampa.VPN.region && (Utils.isDebug() || Utils.isDebug2())) {
-      Lampa.VPN.region = function (call) {
-        if (call) call('de');
-      };
+    if (Lampa.VPN && (Utils.isDebug() || Utils.isDebug2())) {
+      if (Lampa.VPN.region) {
+        Lampa.VPN.region = function (call) {
+          if (call) call('de');
+        };
+      }
+
+      if (Lampa.VPN.code) {
+        Lampa.VPN.code = function () {
+          return 'de';
+        };
+      }
     } ///////FILMIX/////////
 
 
     var filmix_headers = Lampa.Platform.is('android') ? {
       'User-Agent': Utils.filmixUserAgent()
     } : {};
-    var api_url = 'http://filmixapp.cyou/api/v2/';
+    var api_url = Utils.filmixAppHost() + '/api/v2/';
     var dev_id = Utils.randomHex(16);
     var ping_auth;
     Lampa.Params.select('filmix_token', '', '');
