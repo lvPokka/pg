@@ -1,5 +1,6 @@
 //https://nb557.github.io/plugins/online_mod.js
-//05.03.2026 - Fix
+
+//21.03.2026 - Fix
 
 (function () {
     'use strict';
@@ -195,7 +196,7 @@
       var user_proxy2 = (proxy_other_url || proxy2) + param_ip;
       var user_proxy3 = (proxy_other_url || proxy3) + param_ip;
       if (name === 'lumex_api') return user_proxy2;
-      if (name === 'filmix_site') return proxy_other && proxy_secret_ip || user_proxy1;
+      if (name === 'filmix_site') return proxy_other && !proxy_other_url && proxy_secret_ip || user_proxy1;
       if (name === 'filmix_abuse') return '';
       if (name === 'zetflix') return '';
       if (name === 'allohacdn') return proxy_secret;
@@ -212,7 +213,7 @@
         if (name === 'kinobase') return proxy_secret;
         if (name === 'collaps') return proxy_secret;
         if (name === 'cdnmovies') return proxy_secret;
-        if (name === 'filmix') return proxy_other && proxy_secret_ip || user_proxy1;
+        if (name === 'filmix') return proxy_other && !proxy_other_url && proxy_secret_ip || user_proxy1;
         if (name === 'videodb') return user_proxy2;
         if (name === 'fancdn') return user_proxy3;
         if (name === 'fancdn2') return user_proxy2;
@@ -3588,8 +3589,16 @@
         prox_enc += 'param/User-Agent=' + encodeURIComponent(user_agent) + '/';
       }
 
-      var prox_enc2 = prox_enc;
-      var embed = 'https://cdnmovies-stream.online/';
+      var embed_host = 'https://cdnmovies-stream.online';
+      var embed = embed_host + '/';
+      var prox_enc2 = '';
+
+      if (prox) {
+        prox_enc2 += 'param/Origin=' + encodeURIComponent(embed_host) + '/';
+        prox_enc2 += 'param/Referer=' + encodeURIComponent(embed) + '/';
+        prox_enc2 += 'param/User-Agent=' + encodeURIComponent(user_agent) + '/';
+      }
+
       var filter_items = {};
       var choice = {
         season: 0,
@@ -10537,7 +10546,7 @@
       var prefer_mp4 = false;
       var prox = component.proxy('kodik');
       var token = Utils.decodeSecret([124, 125, 1, 86, 90, 64, 12, 123, 108, 59, 122, 125, 82, 3, 90, 23, 90, 122, 60, 110, 43, 123, 84, 3, 91, 71, 88, 112, 111, 57, 122, 121], atob('ZmluZCB5b3VyIG93biB0b2tlbg=='));
-      var embed = 'https://kodikapi.com/search';
+      var embed = 'https://kodik-api.com/search';
       var last_player = '';
       var last_info = '';
       var filter_items = {};
@@ -10948,8 +10957,8 @@
       function getStream(element, call, error) {
         if (element.stream) return call(element);
         if (!element.link) return error();
-        var link_match = element.link.match(/^(\/\/[^\/]+)\/.*$/);
-        var link_origin = (prefer_http ? 'http:' : 'https:') + (link_match ? link_match[1] : '//kodik.info');
+        var link_match = element.link.match(/^((https?:)?\/\/[^\/]+)\/.*$/);
+        var link_origin = component.fixLinkProtocol(link_match ? link_match[1] : '//kodikplayer.com', prefer_http);
         var url = component.fixLinkProtocol(element.link, prefer_http);
         network.clear();
         network.timeout(10000);
@@ -11919,7 +11928,7 @@
     var proxyInitialized = {};
     var proxyWindow = {};
     var proxyCalls = {};
-    var default_balanser = 'vibix';
+    var default_balanser = 'cdnvideohub';
 
     function component(object) {
       var network = new Lampa.Reguest();
@@ -12117,7 +12126,8 @@
         source: new vibix(this, object),
         search: false,
         kp: true,
-        imdb: true
+        imdb: true,
+        disabled: true
       }, {
         name: 'redheadsound',
         title: 'RedHeadSound',
@@ -13410,7 +13420,7 @@
       };
     }
 
-    var mod_version = '05.03.2026';
+    var mod_version = '21.03.2026';
     var isMSX = !!(window.TVXHost || window.TVXManager);
     var isTizen = navigator.userAgent.toLowerCase().indexOf('tizen') !== -1;
     var isIFrame = window.parent !== window;
