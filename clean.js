@@ -9,7 +9,7 @@
           return $("[data-action=" + a + "]").eq(0).hide();
         });
         
-        [".open--premium", ".open--feed", ".open--notice", ".open--profile", ".full-screen", ".open--settings"].forEach(function (a) {
+        [".open--premium", ".open--feed", ".open--notice", ".open--profile", ".full-screen", ".notice--icon", ".open--settings"].forEach(function (a) {
           return $(".head__action" + a).hide();
         });
       }, 10);
