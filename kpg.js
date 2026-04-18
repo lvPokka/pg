@@ -488,7 +488,7 @@
   }
 
   function loadEpisodes(kp_id, card, oncomplete, onerror) {
-    gqlRequest('TvSeriesEpisodes', { tvSeriesId: kp_id, episodesLimit: 20 }, function (data) {
+    gqlRequest('TvSeriesEpisodes', { tvSeriesId: kp_id, episodesLimit: 10 }, function (data) {
       var raw = data && data.tvSeries;
       if (raw && raw.releasedEpisodes && raw.releasedEpisodes.items) {
         card.seasons = convertEpisodesToSeasons(raw.releasedEpisodes.items);
@@ -500,8 +500,7 @@
   }
 
   function loadSimilarFilm(kp_id, card, oncomplete, onerror) {
-    return;
-    gqlRequest('FilmSimilarMovies', { filmId: kp_id, similarMoviesLimit: 12 }, function (data) {
+    gqlRequest('FilmSimilarMovies', { filmId: kp_id, similarMoviesLimit: 3 }, function (data) {
       var items = data && data.film && data.film.userRecommendations && data.film.userRecommendations.items || [];
       if (items.length) {
         card.simular = { results: items.map(function (i) { return convertMovie(i.movie); }).filter(Boolean) };
@@ -511,8 +510,7 @@
   }
 
   function loadSimilarTv(kp_id, card, oncomplete, onerror) {
-    return;
-    gqlRequest('TvSeriesSimilarMovies', { tvSeriesId: kp_id, similarMoviesLimit: 12 }, function (data) {
+    gqlRequest('TvSeriesSimilarMovies', { tvSeriesId: kp_id, similarMoviesLimit: 3 }, function (data) {
       var items = data && data.tvSeries && data.tvSeries.userRecommendations && data.tvSeries.userRecommendations.items || [];
       if (items.length) {
         card.simular = { results: items.map(function (i) { return convertMovie(i.movie); }).filter(Boolean) };
