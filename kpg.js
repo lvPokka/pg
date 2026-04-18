@@ -108,14 +108,14 @@
     var url = PROXY_URL.replace(/\/$/, '') + '?operationName=' + operationName;
     var body = JSON.stringify({
       operationName: operationName,
-      variables:     variables,
-      query:         GQL[operationName],
+      variables: variables,
+      query: GQL[operationName],
     });
 
     fetch(url, {
-      method:  'POST',
+      method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body:    body,
+      body: body,
     })
       .then(function (resp) {
         if (!resp.ok) {
@@ -176,8 +176,8 @@
     var title = (m.title && (m.title.russian || m.title.original)) || '';
     var orig_title = (m.title && (m.title.original || m.title.russian || m.title.english)) || '';
     var year = getYear(m);
-    var img = posterUrl(m.poster, '360x540');
-    var bg = posterUrl(m.cover && m.cover.image || m.poster, '1024x576');
+    var img = posterUrl(m.poster, '800x800');
+    var bg = posterUrl(m.cover && m.cover.image || m.poster, '800x800');
 
     var genres = (m.genres || []).map(function (g) {
       return { id: g.id || 0, name: g.name || g.slug || '', url: 'genre' };
