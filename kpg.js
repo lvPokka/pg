@@ -165,6 +165,11 @@
     // Если явно указано, что это сериал/шоу
     if (innerType === 'tv_series' || innerType === 'mini_series' || innerType === 'tv_show') return 'tv';
     
+    // Некоторые российские мини-сериалы имеют type: NORMAL, но isTvOnly: true или содержат seasons
+    if (m.isTvOnly === true) return 'tv';
+    if (m.seasons && m.seasons.total > 0) return 'tv';
+    if (m.episodesCount && m.episodesCount > 0) return 'tv';
+    
     // Fallback по __typename
     if (gqlTypename === 'tvseries' || gqlTypename === 'tvshow' || gqlTypename === 'miniseries') return 'tv';
     
