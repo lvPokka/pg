@@ -157,10 +157,18 @@
     return '';
   }
 
-  function getLampaType(gqlTypename) {
-    var t = (gqlTypename || '').toLowerCase();
-    if (t === 'film' || t === 'video') return 'movie';
-    return 'tv'; // tvseries, tvshow, miniseries
+  function getLampaType(m) {
+    if (!m) return 'movie';
+    var gqlTypename = (m.__typename || '').toLowerCase();
+    var innerType = (m.type || '').toLowerCase();
+    
+    // Если явно указано, что это сериал/шоу
+    if (innerType === 'tv_series' || innerType === 'mini_series' || innerType === 'tv_show') return 'tv';
+    
+    // Fallback по __typename
+    if (gqlTypename === 'tvseries' || gqlTypename === 'tvshow' || gqlTypename === 'miniseries') return 'tv';
+    
+    return 'movie';
   }
 
   /**f
@@ -169,8 +177,7 @@
    */
   function convertMovie(m) {
     if (!m) return null;
-    var typename = m.__typename || '';
-    var type = getLampaType(typename);
+    var type = getLampaType(m);
     var kp_id = m.id || 0;
     var kp_rating = (m.rating && m.rating.kinopoisk && m.rating.kinopoisk.value) || 0;
     var title = (m.title && (m.title.russian || m.title.original)) || '';
@@ -230,8 +237,8 @@
     if (!card) return null;
     card.type = type;
 
-    // Тип: movie/tv уточняем из typename
-    card.type = getLampaType(m.__typename || (type === 'tv' ? 'tvseries' : 'film'));
+    // Тип: movie/tv уточняем
+    card.type = getLampaType(m);
 
     // Краткое / полное описание
     card.overview = m.synopsis || m.shortDescription || '';
