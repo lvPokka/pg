@@ -17,7 +17,20 @@
     var SOURCE_NAME  = 'KPG';
     var SOURCE_TITLE = 'KPG';
 
-    var GRAPHQL_URL = 'https://graphql.kinopoisk.ru/graphql/?operationName={op}';
+    /**
+     * URL вашего Cloudflare Worker (см. worker.js).
+     * После деплоя замените пустую строку на реальный адрес, например:
+     *   'https://kpg-proxy.YOUR_NAME.workers.dev'
+     * Пока пустой — плагин работает напрямую (упадёт с CORS в браузере).
+     */
+    var PROXY_URL = '';
+
+    var GRAPHQL_DIRECT = 'https://graphql.kinopoisk.ru/graphql/?operationName={op}';
+
+    // Статистика для умного переключения прямой/прокси (аналог оригинального плагина)
+    var _totalReq  = 0;  // всего прямых попыток
+    var _goodProxy = 0;  // успехов через прокси
+    var _failProxy = 0;  // ошибок через прокси
 
     /** Заголовки из kinopapi/templates/headers/default.txt */
     var DEFAULT_HEADERS = {
@@ -88,7 +101,6 @@
         if (res) {
             var cutoff = new Date().getTime() - CACHE_TIME;
             if (res.timestamp > cutoff) return res.value;
-            // чистим протухшее
             for (var k in cache) {
                 if (cache[k] && cache[k].timestamp <= cutoff) delete cache[k];
             }
@@ -100,7 +112,6 @@
         var now = new Date().getTime();
         var keys = Object.keys(cache);
         if (keys.length >= CACHE_SIZE) {
-            // удаляем самый старый
             var oldest = keys.reduce(function (a, b) {
                 return (cache[a] && cache[a].timestamp || 0) < (cache[b] && cache[b].timestamp || 0) ? a : b;
             });
@@ -109,9 +120,78 @@
         cache[key] = { timestamp: now, value: value };
     }
 
+    var _fetchFn = (typeof globalThis !== 'undefined' && globalThis.fetch) ||
+                   (typeof window     !== 'undefined' && window.fetch) || null;
+
     /**
-     * POST-запрос на GraphQL.
-     * Использует Lampa.Reguest если доступен, иначе fetch.
+     * Базовый fetch-POST на GraphQL.
+     * url     — полный URL (прямой или через прокси)
+     * headers — заголовки (прямые включают KP-специфику; прокси — только content-type)
+     */
+    function _doFetch(url, headers, bodyStr, oncomplete, onerror) {
+        _fetchFn(url, { method: 'POST', headers: headers, body: bodyStr })
+            .then(function (resp) {
+                if (!resp.ok) {
+                    var err = new Error('HTTP ' + resp.status);
+                    err.status = resp.status;
+                    throw err;
+                }
+                return resp.json();
+            })
+            .then(function (json) {
+                if (json && json.data) {
+                    oncomplete(json.data);
+                } else {
+                    // GraphQL вернул errors вместо data
+                    var e = new Error('GraphQL error');
+                    e.gql = json;
+                    onerror(e);
+                }
+            })
+            .catch(onerror);
+    }
+
+    /**
+     * Попытка через CORS-прокси (Cloudflare Worker).
+     * Прокси сам проставит нужные KP-заголовки, нам достаточно передать тело.
+     */
+    function _viaProxy(operationName, bodyStr, oncomplete, onerror) {
+        if (!PROXY_URL) {
+            onerror(new Error('PROXY_URL not set'));
+            return;
+        }
+        var proxyUrl = PROXY_URL.replace(/\/$/, '') +
+                       '/graphql/?operationName=' + operationName;
+        // Прокси принимает только content-type — остальное добавит сам
+        _doFetch(proxyUrl, { 'content-type': 'application/json' }, bodyStr,
+            function (data) {
+                _goodProxy++;
+                oncomplete(data);
+            },
+            function (err) {
+                _failProxy++;
+                onerror(err);
+            }
+        );
+    }
+
+    /**
+     * Определяем, стоит ли сразу идти через прокси.
+     * Логика аналогична оригинальному плагину:
+     * если прокси уже показал себя надёжнее прямых запросов — используем его первым.
+     */
+    function _preferProxy() {
+        return PROXY_URL && _totalReq >= 3 && _goodProxy > _failProxy;
+    }
+
+    /**
+     * Главная точка входа для всех GraphQL-запросов.
+     * Алгоритм:
+     *   1. Кэш → сразу возвращаем.
+     *   2. Если прокси «зарекомендовал» себя → сразу через прокси.
+     *   3. Иначе → прямой запрос.
+     *      3a. Прямой упал с CORS/сетевой ошибкой → пробуем прокси.
+     *      3b. Прокси тоже упал → onerror.
      */
     function gqlRequest(operationName, variables, oncomplete, onerror) {
         var cacheKey = operationName + ':' + JSON.stringify(variables);
@@ -121,35 +201,53 @@
             return;
         }
 
-        var url  = GRAPHQL_URL.replace('{op}', operationName);
-        var body = JSON.stringify({ operationName: operationName, variables: variables, query: GQL[operationName] });
-
-        // Lampa.Reguest не умеет POST с body, поэтому используем fetch напрямую
-        var fetchFn = (typeof globalThis !== 'undefined' && globalThis.fetch) ||
-                      (typeof window   !== 'undefined' && window.fetch) ||
-                      null;
-
-        if (!fetchFn) {
-            if (onerror) onerror({ message: 'fetch not available' });
+        if (!_fetchFn) {
+            if (onerror) onerror(new Error('fetch not available'));
             return;
         }
 
-        fetchFn(url, { method: 'POST', headers: DEFAULT_HEADERS, body: body })
-            .then(function (resp) {
-                if (!resp.ok) throw new Error('HTTP ' + resp.status);
-                return resp.json();
-            })
-            .then(function (json) {
-                if (json && json.data) {
-                    setCache(cacheKey, json.data);
-                    oncomplete(json.data);
-                } else {
-                    if (onerror) onerror(json);
-                }
-            })
-            .catch(function (err) {
-                if (onerror) onerror(err);
+        var bodyStr = JSON.stringify({
+            operationName: operationName,
+            variables:     variables,
+            query:         GQL[operationName],
+        });
+
+        function succeed(data) {
+            setCache(cacheKey, data);
+            oncomplete(data);
+        }
+
+        function tryProxy(originalErr) {
+            if (!PROXY_URL) {
+                if (onerror) onerror(originalErr);
+                return;
+            }
+            _viaProxy(operationName, bodyStr, succeed, function (proxyErr) {
+                console.warn('[KPG] proxy also failed:', proxyErr);
+                if (onerror) onerror(proxyErr || originalErr);
             });
+        }
+
+        // --- Если прокси уже «горячий» — идём через него сразу
+        if (_preferProxy()) {
+            _viaProxy(operationName, bodyStr, succeed, function (err) {
+                // Прокси подвёл — пробуем напрямую
+                var directUrl = GRAPHQL_DIRECT.replace('{op}', operationName);
+                _doFetch(directUrl, DEFAULT_HEADERS, bodyStr, succeed, function (e) {
+                    if (onerror) onerror(e);
+                });
+            });
+            return;
+        }
+
+        // --- Прямой запрос (первая попытка)
+        _totalReq++;
+        var directUrl = GRAPHQL_DIRECT.replace('{op}', operationName);
+        _doFetch(directUrl, DEFAULT_HEADERS, bodyStr, succeed, function (err) {
+            // Прямой упал → пробуем прокси
+            console.warn('[KPG] direct failed (' + (err && err.message) + '), trying proxy...');
+            tryProxy(err);
+        });
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -713,10 +811,13 @@
         },
 
         /**
-         * Сброс сетевых запросов.
+         * Сброс кэша и статистики прокси.
          */
         clear: function () {
-            cache = {};
+            cache      = {};
+            _totalReq  = 0;
+            _goodProxy = 0;
+            _failProxy = 0;
         },
 
         isDebug: function () { return false; },
