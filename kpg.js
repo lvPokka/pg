@@ -163,7 +163,7 @@
     return 'tv'; // tvseries, tvshow, miniseries
   }
 
-  /**
+  /**f
    * Конвертация минимального объекта фильма (из списков/suggest) → элемент Lampa.
    * Аналог convertElem в оригинальном плагине.
    */
@@ -176,8 +176,8 @@
     var title = (m.title && (m.title.russian || m.title.original)) || '';
     var orig_title = (m.title && (m.title.original || m.title.russian || m.title.english)) || '';
     var year = getYear(m);
-    var img = posterUrl(m.poster, '800x800');
-    var bg = posterUrl(m.cover && m.cover.image || m.poster, '800x800');
+    var img = posterUrl(m.poster, '600x900');
+    var bg = posterUrl(m.cover && m.cover.image || m.poster, '600x900');
 
     var genres = (m.genres || []).map(function (g) {
       return { id: g.id || 0, name: g.name || g.slug || '', url: 'genre' };
@@ -249,7 +249,7 @@
         title: m.mainTrailer.title || '',
         url: m.mainTrailer.streamUrl || '',
         duration: m.mainTrailer.duration || 0,
-        img: posterUrl(m.mainTrailer.preview, '480x270'),
+        img: posterUrl(m.mainTrailer.preview, '600x900'),
       };
     }
 
@@ -398,7 +398,7 @@
         id: p.id,
         name: p.name || p.originalName || '',
         url: 'person',
-        img: posterUrl(p.poster, '300x400'),
+        img: posterUrl(p.poster, '600x900'),
         gender: p.sex === 'MALE' ? 2 : p.sex === 'FEMALE' ? 1 : 0,
         birthday: p.birthDate || '',
         place_of_birth: p.birthPlace || '',
@@ -433,9 +433,9 @@
 
   /**
    * Загрузка полной карточки фильма или сериала по kinopoisk id.
-   * Пробует сначала FilmBaseInfo, при ошибке — TvSeriesBaseInfo.
+   * Если тип известен (tv), загружаем сразу как сериал.
    */
-  function loadFullCard(kp_id, oncomplete, onerror) {
+  function loadFullCard(kp_id, type, oncomplete, onerror) {
     var baseVars = {
       isAuthorized: false,
       actorsLimit: 20,
@@ -444,6 +444,11 @@
       clientContext: CLIENT_CONTEXT,
       checkSilentInvoiceAvailability: false,
     };
+
+    if (type === 'tv') {
+      loadAsTvSeries(kp_id, baseVars, oncomplete, onerror);
+      return;
+    }
 
     // Пробуем FilmBaseInfo
     gqlRequest('FilmBaseInfo', Object.assign({ filmId: kp_id }, baseVars), function (data) {
@@ -459,7 +464,7 @@
           loadSimilarFilm(kp_id, card, oncomplete, onerror);
         }
       } else {
-        // Пробуем TvSeriesBaseInfo
+        // Пробуем TvSeriesBaseInfo как fallback
         loadAsTvSeries(kp_id, baseVars, oncomplete, onerror);
       }
     }, function () {
@@ -483,7 +488,7 @@
   }
 
   function loadEpisodes(kp_id, card, oncomplete, onerror) {
-    gqlRequest('TvSeriesEpisodes', { tvSeriesId: kp_id, episodesLimit: 500 }, function (data) {
+    gqlRequest('TvSeriesEpisodes', { tvSeriesId: kp_id, episodesLimit: 20 }, function (data) {
       var raw = data && data.tvSeries;
       if (raw && raw.releasedEpisodes && raw.releasedEpisodes.items) {
         card.seasons = convertEpisodesToSeasons(raw.releasedEpisodes.items);
@@ -495,6 +500,7 @@
   }
 
   function loadSimilarFilm(kp_id, card, oncomplete, onerror) {
+    return;
     gqlRequest('FilmSimilarMovies', { filmId: kp_id, similarMoviesLimit: 12 }, function (data) {
       var items = data && data.film && data.film.userRecommendations && data.film.userRecommendations.items || [];
       if (items.length) {
@@ -505,6 +511,7 @@
   }
 
   function loadSimilarTv(kp_id, card, oncomplete, onerror) {
+    return;
     gqlRequest('TvSeriesSimilarMovies', { tvSeriesId: kp_id, similarMoviesLimit: 12 }, function (data) {
       var items = data && data.tvSeries && data.tvSeries.userRecommendations && data.tvSeries.userRecommendations.items || [];
       if (items.length) {
@@ -589,9 +596,11 @@
      */
     full: function (params, oncomplete, onerror) {
       var kp_id = '';
+      var type = 'movie';
 
       if (params.card && params.card.source === SOURCE_NAME) {
         kp_id = params.card.kinopoisk_id;
+        type = params.card.type || 'movie';
         if (!kp_id && params.card.id) {
           kp_id = (params.card.id + '').replace(SOURCE_NAME + '_', '');
           params.card.kinopoisk_id = kp_id;
@@ -600,7 +609,7 @@
 
       if (!kp_id) { if (onerror) onerror(); return; }
 
-      loadFullCard(+kp_id, function (card) {
+      loadFullCard(+kp_id, type, function (card) {
         var status = new Lampa.Status(4);
         status.onComplite = oncomplete;
         status.append('movie', card);
