@@ -6,7 +6,7 @@ return null;}
 function setCache(key,value){var now=new Date().getTime();var keys=Object.keys(cache);if(keys.length>=CACHE_SIZE){var oldest=keys.reduce(function(a,b){return(cache[a]&&cache[a].timestamp||0)<(cache[b]&&cache[b].timestamp||0)?a:b;});delete cache[oldest];}
 cache[key]={timestamp:now,value:value};}
 function gqlRequest(operationName,variables,oncomplete,onerror){var cacheKey=operationName+':'+JSON.stringify(variables);var cached=getCache(cacheKey);if(cached){setTimeout(function(){oncomplete(cached);},10);return;}
-if(!PROXY_URL){if(onerror)onerror(new Error('PROXY_URL не задан'));return;}
+var PROXY_URL=Lampa.Storage.get('kpg_proxy_url','');if(PROXY_URL===''){if(onerror)onerror(new Error('PROXY_URL не задан'));return;}
 var url=PROXY_URL.replace(/\/$/,'')+'?operationName='+operationName;var body=JSON.stringify({operationName:operationName,variables:variables,query:GQL[operationName],});fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:body,}).then(function(resp){if(!resp.ok){var err=new Error('HTTP '+resp.status);err.status=resp.status;throw err;}
 return resp.json();}).then(function(json){if(json&&json.data){setCache(cacheKey,json.data);oncomplete(json.data);}else{var e=new Error((json&&json.errors&&json.errors[0]&&json.errors[0].message)||'GraphQL error');e.gql=json;if(onerror)onerror(e);}}).catch(function(err){if(onerror)onerror(err);});}
 function posterUrl(poster,size){if(!poster||!poster.avatarsUrl)return poster&&poster.fallbackUrl||'';var base=poster.avatarsUrl;if(base.indexOf('//')===0)base='https:'+base;return base+'/'+(size||'300x');}
