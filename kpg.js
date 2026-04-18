@@ -148,7 +148,7 @@
     if (!poster || !poster.avatarsUrl) return poster && poster.fallbackUrl || '';
     var base = poster.avatarsUrl;
     if (base.indexOf('//') === 0) base = 'https:' + base;
-    return base + '/' + (size || '600x900');
+    return base + '/' + (size || '300x');
   }
 
   function getYear(movie) {
@@ -176,8 +176,8 @@
     var title = (m.title && (m.title.russian || m.title.original)) || '';
     var orig_title = (m.title && (m.title.original || m.title.russian || m.title.english)) || '';
     var year = getYear(m);
-    var img = posterUrl(m.poster, '600x900');
-    var bg = posterUrl(m.cover && m.cover.image || m.poster, '600x900');
+    var img = posterUrl(m.poster, '300x');
+    var bg = posterUrl(m.cover && m.cover.image || m.poster, '300x');
 
     var genres = (m.genres || []).map(function (g) {
       return { id: g.id || 0, name: g.name || g.slug || '', url: 'genre' };
@@ -249,7 +249,7 @@
         title: m.mainTrailer.title || '',
         url: m.mainTrailer.streamUrl || '',
         duration: m.mainTrailer.duration || 0,
-        img: posterUrl(m.mainTrailer.preview, '600x900'),
+        img: posterUrl(m.mainTrailer.preview, '300x'),
       };
     }
 
@@ -398,7 +398,7 @@
         id: p.id,
         name: p.name || p.originalName || '',
         url: 'person',
-        img: posterUrl(p.poster, '600x900'),
+        img: posterUrl(p.poster, '300x'),
         gender: p.sex === 'MALE' ? 2 : p.sex === 'FEMALE' ? 1 : 0,
         birthday: p.birthDate || '',
         place_of_birth: p.birthPlace || '',
