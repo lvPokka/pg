@@ -18,42 +18,10 @@
   var SOURCE_TITLE = 'KPG';
 
   /**
-   * URL вашего PHP-прокси (см. proxy.php).
-   * Загрузите proxy.php на ваш сайт и вставьте сюда полный URL, например:
-   *   'https://example.com/proxy.php'
-   * Пока пустой — плагин пробует прямой запрос, при CORS-ошибке упадёт.
+   * URL вашего PHP-прокси (lampaProxy.php).
+   * Все запросы идут только через него — прямых запросов нет.
    */
   var PROXY_URL = 'https://pokkahub.duckdns.org/lampaProxy.php';
-
-  var GRAPHQL_DIRECT = 'https://graphql.kinopoisk.ru/graphql/?operationName={op}';
-
-  // Статистика для умного переключения прямой/прокси (аналог оригинального плагина)
-  var _totalReq = 0;  // всего прямых попыток
-  var _goodProxy = 0;  // успехов через прокси
-  var _failProxy = 0;  // ошибок через прокси
-
-  /** Заголовки из kinopapi/templates/headers/default.txt */
-  var DEFAULT_HEADERS = {
-    'accept': 'application/json',
-    'accept-encoding': 'identity',
-    'accept-language': 'ru,en;q=0.9',
-    'content-type': 'application/json',
-    'origin': 'https://www.kinopoisk.ru',
-    'priority': 'u=1, i',
-    'referer': 'https://www.kinopoisk.ru/',
-    'sec-ch-ua': '"Chromium";v="130", "YaBrowser";v="24.12", "Not?A_Brand";v="99", "Yowser";v="2.5"',
-    'sec-ch-ua-full-version-list': '"Chromium";v="130.0.6723.170", "YaBrowser";v="24.12.3.781", "Not?A_Brand";v="99.0.0.0", "Yowser";v="2.5"',
-    'sec-ch-ua-mobile': '?0',
-    'sec-ch-ua-platform': '"Windows"',
-    'sec-ch-ua-platform-version': '10.0.0',
-    'sec-ch-ua-wow64': '?0',
-    'sec-fetch-dest': 'empty',
-    'sec-fetch-mode': 'cors',
-    'sec-fetch-site': 'same-site',
-    'service-id': '25',
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 YaBrowser/24.12.0.0 Safari/537.36',
-    'x-preferred-language': 'ru',
-  };
 
   var CLIENT_CONTEXT = {
     clientName: 'web',
@@ -120,16 +88,35 @@
     cache[key] = { timestamp: now, value: value };
   }
 
-  var _fetchFn = (typeof globalThis !== 'undefined' && globalThis.fetch) ||
-    (typeof window !== 'undefined' && window.fetch) || null;
-
   /**
-   * Базовый fetch-POST на GraphQL.
-   * url     — полный URL (прямой или через прокси)
-   * headers — заголовки (прямые включают KP-специфику; прокси — только content-type)
+   * Все GraphQL-запросы идут только через PHP-прокси.
+   * Прокси сам проставляет заголовки KP и снимает CORS-ограничения.
    */
-  function _doFetch(url, headers, bodyStr, oncomplete, onerror) {
-    _fetchFn(url, { method: 'POST', headers: headers, body: bodyStr })
+  function gqlRequest(operationName, variables, oncomplete, onerror) {
+    var cacheKey = operationName + ':' + JSON.stringify(variables);
+    var cached = getCache(cacheKey);
+    if (cached) {
+      setTimeout(function () { oncomplete(cached); }, 10);
+      return;
+    }
+
+    if (!PROXY_URL) {
+      if (onerror) onerror(new Error('PROXY_URL не задан'));
+      return;
+    }
+
+    var url = PROXY_URL.replace(/\/$/, '') + '?operationName=' + operationName;
+    var body = JSON.stringify({
+      operationName: operationName,
+      variables:     variables,
+      query:         GQL[operationName],
+    });
+
+    fetch(url, {
+      method:  'POST',
+      headers: { 'content-type': 'application/json' },
+      body:    body,
+    })
       .then(function (resp) {
         if (!resp.ok) {
           var err = new Error('HTTP ' + resp.status);
@@ -140,116 +127,17 @@
       })
       .then(function (json) {
         if (json && json.data) {
+          setCache(cacheKey, json.data);
           oncomplete(json.data);
         } else {
-          // GraphQL вернул errors вместо data
-          var e = new Error('GraphQL error');
+          var e = new Error((json && json.errors && json.errors[0] && json.errors[0].message) || 'GraphQL error');
           e.gql = json;
-          onerror(e);
+          if (onerror) onerror(e);
         }
       })
-      .catch(onerror);
-  }
-
-  /**
-   * Попытка через PHP CORS-прокси (proxy.php).
-   * Прокси сам проставит нужные KP-заголовки, нам достаточно передать тело.
-   * URL: https://example.com/proxy.php?operationName=SuggestSearch
-   */
-  function _viaProxy(operationName, bodyStr, oncomplete, onerror) {
-    if (!PROXY_URL) {
-      onerror(new Error('PROXY_URL not set'));
-      return;
-    }
-    // proxy.php принимает operationName как query-параметр
-    var proxyUrl = PROXY_URL.replace(/\/$/, '') +
-      '?operationName=' + operationName;
-    // Прокси принимает только content-type — остальное добавит сам
-    _doFetch(proxyUrl, { 'content-type': 'application/json' }, bodyStr,
-      function (data) {
-        _goodProxy++;
-        oncomplete(data);
-      },
-      function (err) {
-        _failProxy++;
-        onerror(err);
-      }
-    );
-  }
-
-  /**
-   * Определяем, стоит ли сразу идти через прокси.
-   * Логика аналогична оригинальному плагину:
-   * если прокси уже показал себя надёжнее прямых запросов — используем его первым.
-   */
-  function _preferProxy() {
-    return PROXY_URL && _totalReq >= 3 && _goodProxy > _failProxy;
-  }
-
-  /**
-   * Главная точка входа для всех GraphQL-запросов.
-   * Алгоритм:
-   *   1. Кэш → сразу возвращаем.
-   *   2. Если прокси «зарекомендовал» себя → сразу через прокси.
-   *   3. Иначе → прямой запрос.
-   *      3a. Прямой упал с CORS/сетевой ошибкой → пробуем прокси.
-   *      3b. Прокси тоже упал → onerror.
-   */
-  function gqlRequest(operationName, variables, oncomplete, onerror) {
-    var cacheKey = operationName + ':' + JSON.stringify(variables);
-    var cached = getCache(cacheKey);
-    if (cached) {
-      setTimeout(function () { oncomplete(cached); }, 10);
-      return;
-    }
-
-    if (!_fetchFn) {
-      if (onerror) onerror(new Error('fetch not available'));
-      return;
-    }
-
-    var bodyStr = JSON.stringify({
-      operationName: operationName,
-      variables: variables,
-      query: GQL[operationName],
-    });
-
-    function succeed(data) {
-      setCache(cacheKey, data);
-      oncomplete(data);
-    }
-
-    function tryProxy(originalErr) {
-      if (!PROXY_URL) {
-        if (onerror) onerror(originalErr);
-        return;
-      }
-      _viaProxy(operationName, bodyStr, succeed, function (proxyErr) {
-        console.warn('[KPG] proxy also failed:', proxyErr);
-        if (onerror) onerror(proxyErr || originalErr);
+      .catch(function (err) {
+        if (onerror) onerror(err);
       });
-    }
-
-    // --- Если прокси уже «горячий» — идём через него сразу
-    if (_preferProxy()) {
-      _viaProxy(operationName, bodyStr, succeed, function (err) {
-        // Прокси подвёл — пробуем напрямую
-        var directUrl = GRAPHQL_DIRECT.replace('{op}', operationName);
-        _doFetch(directUrl, DEFAULT_HEADERS, bodyStr, succeed, function (e) {
-          if (onerror) onerror(e);
-        });
-      });
-      return;
-    }
-
-    // --- Прямой запрос (первая попытка)
-    _totalReq++;
-    var directUrl = GRAPHQL_DIRECT.replace('{op}', operationName);
-    _doFetch(directUrl, DEFAULT_HEADERS, bodyStr, succeed, function (err) {
-      // Прямой упал → пробуем прокси
-      console.warn('[KPG] direct failed (' + (err && err.message) + '), trying proxy...');
-      tryProxy(err);
-    });
   }
 
   // ─────────────────────────────────────────────────────────────
